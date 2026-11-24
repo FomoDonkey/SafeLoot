@@ -1,0 +1,44 @@
+## Interface: 16001
+## Title: |cffd4a017SafeLoot|r
+## Notes: Protects you in groups with strangers: an alarm if the loot rules change, impossible Need rolls flagged, and a private memory of players.
+## Notes-esES: Te protege en grupos con desconocidos: alarma si cambian las reglas del botín, tiradas de Necesidad imposibles y una memoria privada de jugadores.
+## Notes-esMX: Te protege en grupos con desconocidos: alarma si cambian las reglas del botín, tiradas de Necesidad imposibles y una memoria privada de jugadores.
+## Notes-deDE: Schützt dich in Gruppen mit Fremden: Alarm, wenn sich die Beuteregeln ändern, unmögliche Bedarfswürfe markiert und ein privates Spielergedächtnis.
+## Notes-frFR: Vous protège dans les groupes d'inconnus : alarme si les règles du butin changent, jets de Besoin impossibles signalés et mémoire privée des joueurs.
+## Notes-ptBR: Protege você em grupos com desconhecidos: alarme se as regras de saque mudarem, rolagens de Necessidade impossíveis marcadas e uma memória privada de jogadores.
+## Author: FomoDonkey
+## Version: 0.2.0
+## SavedVariables: SafeLootDB
+## SavedVariablesPerCharacter: SafeLootCharDB
+## IconTexture: Interface\Icons\INV_Misc_Bag_10
+## AddonCompartmentFunc: SafeLoot_OnAddonCompartmentClick
+## AddonCompartmentFuncOnEnter: SafeLoot_OnAddonCompartmentEnter
+## AddonCompartmentFuncOnLeave: SafeLoot_OnAddonCompartmentLeave
+## Category: Group
+
+Core\Init.lua
+Locales\enUS.lua
+Locales\esES.lua
+Locales\deDE.lua
+Locales\frFR.lua
+Locales\ptBR.lua
+Core\Names.lua
+Core\API.lua
+Core\Store.lua
+Logic\Proficiency.lua
+Logic\Rules.lua
+Logic\Judge.lua
+Logic\Memory.lua
+UI\Theme.lua
+UI\Widgets.lua
+UI\Alert.lua
+Modules\Run.lua
+Modules\Diagnostics.lua
+Modules\Watcher.lua
+Modules\LootWatch.lua
+Modules\MemoryHooks.lua
+Modules\Contract.lua
+UI\MainFrame.lua
+UI\Settings.lua
+UI\Indicator.lua
+UI\Welcome.lua

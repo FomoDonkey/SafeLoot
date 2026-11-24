@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+.venv/
+events.jsonl
+tools/remote.local.json

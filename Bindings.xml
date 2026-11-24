@@ -1,0 +1,3 @@
+<Bindings>
+  <Binding name="SAFELOOT_TOGGLE" header="SAFELOOT" category="ADDONS">SafeLoot_Toggle()</Binding>
+</Bindings>

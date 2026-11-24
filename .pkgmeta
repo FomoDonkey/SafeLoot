@@ -1,0 +1,11 @@
+package-as: SafeLoot
+
+ignore:
+  - tests
+  - tools
+  - docs
+  - README.md
+  - CHANGELOG.md
+  - .claude
+  - events.jsonl
+  - .gitignore
