@@ -556,4 +556,3 @@ function API.HookInsertLink(fn)
   end
   return hooked
 end
-

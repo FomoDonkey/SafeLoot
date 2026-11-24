@@ -21,7 +21,7 @@ Native look (the game's own windows, fonts, icons and sounds), accessible (never
 3. Restart the game.
 
 ## Commands
-`/safeloot` (or `/sl`) opens the window.
+`/safeloot` (or `/sl`), or the button on the minimap, opens the window.
 
 | Command | What it does |
 |---|---|
@@ -32,12 +32,13 @@ Native look (the game's own windows, fonts, icons and sounds), accessible (never
 | `rules` | Open the Rules tab |
 | `players` | Open the Players tab |
 | `journal` | Open the Journal tab |
+| `minimap` | Show or hide the minimap button |
 | `settings` | Open the settings |
 | `welcome` | Show the welcome card again |
 | `help` | Open the Help tab |
 | `exceptions` | Clear the detector exceptions |
 
-Spanish aliases also work: `prueba`, `alarma`, `marca`, `resumen`, `reglas`, `jugadores`, `diario`, `ajustes`, `bienvenida`, `ayuda`, `excepciones`.
+Spanish aliases also work: `prueba`, `alarma`, `marca`, `resumen`, `reglas`, `jugadores`, `diario`, `minimapa`, `ajustes`, `bienvenida`, `ayuda`, `excepciones`.
 
 ## Development
 - The rules of the project are in [`docs/PROMPT_MAESTRO.md`](docs/PROMPT_MAESTRO.md).

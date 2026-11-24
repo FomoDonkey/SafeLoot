@@ -369,3 +369,14 @@ L.PICKER_UNSEEN_TIP = "De las tablas de AtlasLoot: nadie de tus grupos lo ha vis
 L.PICKER_HINT_UNSEEN = "Los objetos marcados «sin ver aún» salen de las tablas de AtlasLoot y pueden cambiar en Forever. La marca se quita cuando tú o alguien con SafeLoot en tu grupo los ve caer."
 L.LOOT_CREDIT = "Tablas de botín: %s, GNU GPL v2."
 L.DIAG_PACK = "paquete de botín: %d objetos"
+
+-- 0.4.1: minimap button
+L.MINIMAP_LEFT = "Clic: abrir o cerrar"
+L.MINIMAP_RIGHT = "Clic derecho: menú rápido"
+L.MINIMAP_DRAG = "Arrastrar: moverlo por el minimapa"
+L.MINIMAP_HIDE = "Ocultar este botón"
+L.MINIMAP_HIDDEN = "Botón del minimapa oculto. Escribe /safeloot minimapa para recuperarlo."
+L.MINIMAP_SHOWN = "Botón del minimapa visible."
+L.CMD_MINIMAP = "mostrar u ocultar el botón del minimapa"
+L.OPT_showMinimap = "Botón en el minimapa"
+L.OPT_showMinimap_TIP = "Un clic abre SafeLoot; el clic derecho da un menú rápido. Arrástralo por el borde del minimapa."

@@ -374,4 +374,3 @@ function UI.FitText(button, width)
     fs:SetWordWrap(false)
   end
 end
-

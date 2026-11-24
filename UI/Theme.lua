@@ -57,6 +57,7 @@ T.tex = {
   wait = "Interface\\RaidFrame\\ReadyCheck-Waiting",
   alert = "Interface\\DialogFrame\\UI-Dialog-Icon-AlertNew",
   skull = "Interface\\TargetingFrame\\UI-RaidTargetingIcon_8",
+  minimap = "Interface\\AddOns\\SafeLoot\\Media\\Minimap",
   portrait = "Interface\\AddOns\\SafeLoot\\Media\\Portrait",
   dialogBg = "Interface\\DialogFrame\\UI-DialogBox-Background-Dark",
   remove = "Interface\\Buttons\\UI-GroupLoot-Pass-Up",

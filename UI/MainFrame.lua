@@ -634,7 +634,7 @@ local function helpItems()
   head(L.HELP_COMMANDS_TITLE)
   for _, cmd in ipairs({ { "", L.CMD_OPEN }, { "test", L.CMD_TEST }, { "alarm", L.CMD_DEMO_ALARM },
     { "mark", L.CMD_DEMO_MARK }, { "summary", L.CMD_DEMO_SUMMARY }, { "welcome", L.CMD_WELCOME },
-    { "settings", L.CMD_SETTINGS }, { "exceptions", L.CMD_RESET_EXCEPTIONS } }) do
+    { "settings", L.CMD_SETTINGS }, { "minimap", L.CMD_MINIMAP }, { "exceptions", L.CMD_RESET_EXCEPTIONS } }) do
     line(T.Paint("/safeloot " .. cmd[1], T.color.white) .. " — " .. cmd[2])
   end
   head(L.HELP_LOOT_TITLE)

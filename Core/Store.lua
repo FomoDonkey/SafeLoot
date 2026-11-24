@@ -30,6 +30,8 @@ local DEFAULTS = {
     reduceMotion = false,
     scale = 1.0,
     onboarded = false,
+    showMinimap = true,     -- the button on the edge of the minimap
+    minimapAngle = 182,     -- where it is (degrees, 0 = right)
     shareLoot = true,       -- exchange the loot book (item IDs per boss) with SafeLoot users in your group
   },
   players = {},

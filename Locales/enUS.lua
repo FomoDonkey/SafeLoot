@@ -380,3 +380,14 @@ L.PICKER_UNSEEN_TIP = "From AtlasLoot's loot tables: nobody in your groups has s
 L.PICKER_HINT_UNSEEN = "Items marked \"not seen yet\" come from AtlasLoot's loot tables and may differ in Forever. The mark goes away when you or a SafeLoot user in your group sees them drop."
 L.LOOT_CREDIT = "Loot tables: %s, GNU GPL v2."
 L.DIAG_PACK = "loot data pack: %d items"
+
+-- 0.4.1: minimap button
+L.MINIMAP_LEFT = "Click: open or close"
+L.MINIMAP_RIGHT = "Right click: quick menu"
+L.MINIMAP_DRAG = "Drag: move it around the minimap"
+L.MINIMAP_HIDE = "Hide this button"
+L.MINIMAP_HIDDEN = "Minimap button hidden. Type /safeloot minimap to bring it back."
+L.MINIMAP_SHOWN = "Minimap button visible."
+L.CMD_MINIMAP = "show or hide the minimap button"
+L.OPT_showMinimap = "Minimap button"
+L.OPT_showMinimap_TIP = "One click opens SafeLoot; right click gives a quick menu. Drag it around the minimap."

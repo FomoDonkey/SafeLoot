@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.4.1 — 2026-11-24 — minimap button
+- A round button on the edge of the minimap: click opens or closes SafeLoot, right click gives a quick menu (tabs, loot by boss, settings, hide), drag moves it. It shows a warning mark while your group's loot rules are not the agreed ones. Works with round and square minimaps. Hide it from the settings, its menu or `/safeloot minimap`.
+
 ## 0.4.0 — 2026-11-24 — pick instead of type, and the full audit
 Not yet seen in the real client: everything below is checked offline and against the Forever UI source (build 71091).
 

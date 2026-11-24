@@ -369,3 +369,14 @@ L.PICKER_UNSEEN_TIP = "Aus den Beutetabellen von AtlasLoot: Niemand in deinen Gr
 L.PICKER_HINT_UNSEEN = "Mit „noch nicht gesehen“ markierte Gegenstände stammen aus den AtlasLoot-Tabellen und können in Forever anders sein. Die Markierung verschwindet, sobald sie in deiner Gruppe fallen."
 L.LOOT_CREDIT = "Beutetabellen: %s, GNU GPL v2."
 L.DIAG_PACK = "Beutepaket: %d Gegenstände"
+
+-- 0.4.1: minimap button
+L.MINIMAP_LEFT = "Klick: öffnen oder schließen"
+L.MINIMAP_RIGHT = "Rechtsklick: Schnellmenü"
+L.MINIMAP_DRAG = "Ziehen: an der Minikarte verschieben"
+L.MINIMAP_HIDE = "Diesen Knopf verbergen"
+L.MINIMAP_HIDDEN = "Minikarten-Knopf verborgen. /safeloot minimap holt ihn zurück."
+L.MINIMAP_SHOWN = "Minikarten-Knopf sichtbar."
+L.CMD_MINIMAP = "Minikarten-Knopf zeigen oder verbergen"
+L.OPT_showMinimap = "Knopf an der Minikarte"
+L.OPT_showMinimap_TIP = "Ein Klick öffnet SafeLoot, ein Rechtsklick zeigt ein Schnellmenü. Zieh ihn am Rand der Minikarte entlang."

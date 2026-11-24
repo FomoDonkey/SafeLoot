@@ -143,6 +143,11 @@ GameTooltip = newWidget("GameTooltip", "GameTooltip")
 GameTooltip._lines = {}
 function GameTooltip:AddLine(text) table.insert(self._lines, text) end
 function GameTooltip:GetUnit() return SIM.tooltipUnitName, SIM.tooltipUnit end
+Minimap = newWidget("Frame", "Minimap")
+Minimap._width, Minimap._height = 198, 198
+function Minimap:GetCenter() return 1000, 600 end
+function Minimap:GetEffectiveScale() return 1 end
+function GetCursorPosition() return SIM.cursorX or 1000, SIM.cursorY or 600 end
 UISpecialFrames = {}
 SlashCmdList = {}
 

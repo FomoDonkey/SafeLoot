@@ -13,6 +13,7 @@ local OPTIONS = {
   { section = "SECTION_GENERAL" },
   { key = "language", kind = "language" },
   { key = "showIndicator" },
+  { key = "showMinimap" },
   { section = "SECTION_ALARM" },
   { key = "alarmCenter" }, { key = "alarmSound" }, { key = "alarmVoice" }, { key = "alarmPanel" }, { key = "panelInCombat" },
   { section = "SECTION_DETECT" },

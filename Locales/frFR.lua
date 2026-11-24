@@ -369,3 +369,14 @@ L.PICKER_UNSEEN_TIP = "Des tables de butin d’AtlasLoot : personne dans vos gro
 L.PICKER_HINT_UNSEEN = "Les objets marqués « pas encore vu » viennent des tables d’AtlasLoot et peuvent différer dans Forever. La marque disparaît quand vous ou un utilisateur de SafeLoot de votre groupe les voit tomber."
 L.LOOT_CREDIT = "Tables de butin : %s, GNU GPL v2."
 L.DIAG_PACK = "données de butin : %d objets"
+
+-- 0.4.1: minimap button
+L.MINIMAP_LEFT = "Clic : ouvrir ou fermer"
+L.MINIMAP_RIGHT = "Clic droit : menu rapide"
+L.MINIMAP_DRAG = "Glisser : le déplacer autour de la minicarte"
+L.MINIMAP_HIDE = "Masquer ce bouton"
+L.MINIMAP_HIDDEN = "Bouton de la minicarte masqué. Tapez /safeloot minimap pour le retrouver."
+L.MINIMAP_SHOWN = "Bouton de la minicarte visible."
+L.CMD_MINIMAP = "afficher ou masquer le bouton de la minicarte"
+L.OPT_showMinimap = "Bouton sur la minicarte"
+L.OPT_showMinimap_TIP = "Un clic ouvre SafeLoot ; le clic droit donne un menu rapide. Faites-le glisser autour de la minicarte."
