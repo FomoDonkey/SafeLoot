@@ -24,7 +24,7 @@ local function eventText(event)
   end
   local text = L["EVENT_" .. string.upper(event.kind)] or event.kind
   local where = event.place and (" · " .. event.place) or ""
-  local what = event.item and (" · " .. event.item) or ""
+  local what = (event.link or event.item) and (" · " .. (event.link or event.item)) or ""
   local note = event.note and (" · \"" .. event.note .. "\"") or ""
   return text .. what .. where .. note .. " (" .. UI.FormatDate(event.t) .. ")"
 end
@@ -43,6 +43,10 @@ function MH:TooltipLines(name)
     if summary.count > 1 then
       lines[#lines + 1] = string.format(L.TOOLTIP_MORE, summary.count - 1)
     end
+  elseif summary.latestAny then
+    -- only notes: show the newest one (it is what the player wrote to remember this person)
+    lines[#lines + 1] = "|T" .. T.tex.wait .. ":14:14|t " .. T.Paint(L.ADDON_NAME, T.color.gray)
+    lines[#lines + 1] = eventText(summary.latestAny)
   elseif record.seen and record.seen > 0 then
     lines[#lines + 1] = "|T" .. T.tex.wait .. ":14:14|t " .. T.Paint(string.format(L.TOOLTIP_SEEN, record.seen), T.color.gray)
   end

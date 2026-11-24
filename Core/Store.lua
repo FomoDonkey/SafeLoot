@@ -30,9 +30,11 @@ local DEFAULTS = {
     reduceMotion = false,
     scale = 1.0,
     onboarded = false,
+    shareLoot = true,       -- exchange the loot book (item IDs per boss) with SafeLoot users in your group
   },
   players = {},
   runs = {},
+  loot = {},                -- loot book: [mapID][bossKey][itemID] = last seen (Logic/LootBook.lua)
   diagnostics = { observed = {}, report = nil },
   errors = {},
 }

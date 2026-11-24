@@ -5,52 +5,14 @@ local MF = SL:NewModule("MainFrame")
 SL.MainFrame = MF
 local API, Rules, Memory, Names, UI, T, L = SL.API, SL.Rules, SL.Memory, SL.Names, SL.UI, SL.Theme, SL.L
 
-local WIDTH, HEIGHT = 560, 470
+local WIDTH, HEIGHT = 560, 520 -- (taller in 0.4.0: room for the reserve list)
 local TABS = { "contract", "journal", "players", "help" }
 
--- Lists: WowScrollBoxList + MinimalScrollBar (verified templates), one text line per element ----------------
-local function makeList(parent, rowHeight, onInit, onClick)
-  local box = UI.Create("Frame", parent, "WowScrollBoxList")
-  local bar = UI.Create("EventFrame", parent, "MinimalScrollBar")
-  box:SetPoint("TOPLEFT", 4, -4)
-  box:SetPoint("BOTTOMRIGHT", -20, 4)
-  bar:SetPoint("TOPLEFT", box, "TOPRIGHT", 4, 0)
-  bar:SetPoint("BOTTOMLEFT", box, "BOTTOMRIGHT", 4, 0)
-  local list = { box = box, bar = bar }
-  if CreateScrollBoxListLinearView and ScrollUtil and ScrollUtil.InitScrollBoxListWithScrollBar and CreateDataProvider then
-    local view = CreateScrollBoxListLinearView()
-    view:SetElementExtent(rowHeight)
-    view:SetElementInitializer("Button", function(row, data)
-      if not row.Text then
-        row.Highlight = row:CreateTexture(nil, "HIGHLIGHT")
-        row.Highlight:SetAllPoints()
-        row.Highlight:SetColorTexture(1, 0.82, 0, 0.08)
-        row.Text = UI.Text(row, "small", "", "LEFT")
-        row.Text:SetPoint("LEFT", 6, 0)
-        row.Text:SetPoint("RIGHT", -6, 0)
-        row.Text:SetWordWrap(false)
-        row:SetScript("OnClick", function(self)
-          if onClick and self.data then
-            SL.SafeCall("list click", onClick, self.data)
-          end
-        end)
-      end
-      row.data = data
-      onInit(row, data)
-    end)
-    ScrollUtil.InitScrollBoxListWithScrollBar(box, bar, view)
-    list.provider = CreateDataProvider()
-    box:SetDataProvider(list.provider)
-  end
-  list.Set = function(self, items)
-    if self.provider then
-      self.provider:Flush()
-      for _, item in ipairs(items) do
-        self.provider:Insert(item)
-      end
-    end
-  end
-  return list
+-- Lists: UI.List (WowScrollBoxList + MinimalScrollBar), one text line per element --------------------------
+local function makeList(parent, rowHeight, onInit, onClick, opts)
+  return UI.List(parent, rowHeight, onInit, onClick and function(data)
+    onClick(data)
+  end, opts)
 end
 
 -- Tab 1: Contract ---------------------------------------------------------------------------------------------
@@ -65,13 +27,22 @@ local function buildContractTab(page)
   source:SetPoint("RIGHT", -16, 0)
   page.Source = source
 
+  local game = UI.Text(page, "small", "", "LEFT")
+  game:SetPoint("TOPLEFT", source, "BOTTOMLEFT", 0, -6)
+  game:SetPoint("RIGHT", -16, 0)
+  page.Game = game
+
   local accepted = UI.Text(page, "small", "", "LEFT")
-  accepted:SetPoint("TOPLEFT", source, "BOTTOMLEFT", 0, -6)
+  accepted:SetPoint("TOPLEFT", game, "BOTTOMLEFT", 0, -4)
   accepted:SetPoint("RIGHT", -16, 0)
   page.Accepted = accepted
+  -- one line each: a long summary or a whole raid of names never pushes into the rules below
+  for _, fs in ipairs({ status, source, game, accepted }) do
+    fs:SetWordWrap(false)
+  end
 
   local header = UI.Text(page, "header", L.CONTRACT_EDIT, "LEFT")
-  header:SetPoint("TOPLEFT", 16, -96)
+  header:SetPoint("TOPLEFT", 16, -84)
 
   -- Need rule: three exclusive choices (check buttons acting as radio buttons)
   page.rules = {}
@@ -81,91 +52,146 @@ local function buildContractTab(page)
       local c = SL.Contract:Get()
       return c and c.needRule == choice[1]
     end, function(value)
-      local c = SL.Contract:Get() or Rules.New("proposed", API.Now())
-      c.needRule = value and choice[1] or nil
-      SL.Contract.current = c
-      MF:Refresh()
+      SL.Contract:Edit(function(c)
+        c.needRule = value and choice[1] or nil
+      end)
     end, L["NEED_TIP_" .. choice[1]])
-    check:SetPoint("TOPLEFT", 14, -114 - (i - 1) * 26)
+    check:SetPoint("TOPLEFT", 14, -102 - (i - 1) * 24)
     page.rules[#page.rules + 1] = check
   end
   local boe = UI.Check(page, L.BOE_GREED, function()
     local c = SL.Contract:Get()
     return c and c.boe == "greed"
   end, function(value)
-    local c = SL.Contract:Get() or Rules.New("proposed", API.Now())
-    c.boe = value and "greed" or nil
-    SL.Contract.current = c
-    MF:Refresh()
+    SL.Contract:Edit(function(c)
+      c.boe = value and "greed" or nil
+    end)
   end, L.BOE_TIP)
-  boe:SetPoint("TOPLEFT", 280, -114)
+  boe:SetPoint("TOPLEFT", 14, -102 - 3 * 24) -- its own row (beside the long first label it overlapped it)
   page.rules[#page.rules + 1] = boe
 
-  -- Reserves: item + owner + add
+  -- Reserves: where the group goes, then [HR/SR] [item] [Loot...] [-> who] [+], then the list ------------------
   local resHeader = UI.Text(page, "header", L.RESERVES_HEADER, "LEFT")
-  resHeader:SetPoint("TOPLEFT", 16, -204)
-  local item = UI.Create("EditBox", page, "SharedEditBoxTemplate")
-  item:SetSize(230, 32)
-  item:SetPoint("TOPLEFT", 14, -222)
-  item:SetAutoFocus(false)
-  if item.SetInstructions then
-    pcall(item.SetInstructions, item, L.RESERVE_ITEM)
-  end
-  page.ItemBox = item
-  local owner = UI.Create("EditBox", page, "SharedEditBoxTemplate")
-  owner:SetSize(150, 32)
-  owner:SetPoint("LEFT", item, "RIGHT", 8, 0)
-  owner:SetAutoFocus(false)
-  if owner.SetInstructions then
-    pcall(owner.SetInstructions, owner, L.RESERVE_OWNER)
-  end
-  page.OwnerBox = owner
-  local add = UI.Button(page, ADD or "+", 70, function()
-    local itemName = item:GetText()
-    if not itemName or itemName:gsub("%s", "") == "" then
-      return
-    end
-    local c = SL.Contract:Get() or Rules.New("proposed", API.Now())
-    local partialItem = itemName:match("%[(.-)%]") or itemName
-    local ownerName = owner:GetText() ~= "" and owner:GetText() or nil
-    Rules.Apply(c, { reserves = { { item = partialItem, owner = ownerName, kind = "hard" } } })
-    SL.Contract.current = c
-    item:SetText("")
-    owner:SetText("")
+  resHeader:SetPoint("TOPLEFT", 16, -206)
+  local dest = UI.Button(page, L.DEST_NONE, 250, function()
+    SL.LootPicker:Open(nil)
+  end, L.DEST_TITLE, L.DEST_TIP)
+  dest:SetPoint("TOPRIGHT", -14, -200)
+  page.Dest = dest
+
+  page.kind = "hard"
+  local kind = UI.Button(page, "HR", 40, function()
+    page.kind = page.kind == "hard" and "soft" or "hard"
+    T.Play(page.kind == "soft" and "checkOn" or "checkOff")
     MF:Refresh()
-  end, L.RESERVE_ADD_TIP, L.RESERVE_ADD_BODY)
-  add:SetPoint("LEFT", owner, "RIGHT", 8, 0)
-  -- shift-click an item link into the box
-  item:SetScript("OnEditFocusGained", function()
+  end, L.KIND_TITLE, function()
+    return (page.kind == "soft" and L.GLOSS_SR or L.GLOSS_HR) .. "\n\n" .. L.KIND_SWITCH
+  end)
+  kind:SetPoint("TOPLEFT", 14, -228)
+  page.Kind = kind
+
+  local item = UI.Input(page, 186, L.RESERVE_ITEM, 60)
+  item.holder:SetPoint("LEFT", kind, "RIGHT", 6, 0)
+  page.ItemBox = item
+  item:HookScript("OnTextChanged", function(self)
+    -- typing by hand forgets the item picked from the list once the text no longer is its name
+    if page.picked and self:GetText() ~= page.picked.name then
+      page.picked = nil
+    end
+  end)
+  item:SetScript("OnEnterPressed", function(self)
+    self:ClearFocus()
+    MF:AddReserve()
+  end)
+  -- Shift-click an item link into the box (see MF:OnEnable)
+  item:HookScript("OnEditFocusGained", function()
     MF.linkTarget = item
   end)
 
-  local reserves = UI.Text(page, "small", "", "LEFT")
-  reserves:SetPoint("TOPLEFT", 16, -262)
-  reserves:SetPoint("RIGHT", -16, 0)
-  reserves:SetSpacing(2)
-  page.Reserves = reserves
+  local lootButton = UI.Button(page, L.LOOT_BUTTON, 82, function()
+    SL.LootPicker:Open(SL.Catalog:Destination())
+  end, L.LOOT_BUTTON, L.LOOT_BUTTON_TIP)
+  lootButton:SetPoint("LEFT", item.holder, "RIGHT", 6, 0)
+  page.LootButton = lootButton
+
+  page.owner = Names.Me() -- who the reserve is for (yourself unless you choose someone)
+  local owner = UI.Button(page, "", 128, function(self)
+    MF:ChooseOwner(self)
+  end, L.RESERVE_FOR, L.OWNER_TIP)
+  owner:SetPoint("LEFT", lootButton, "RIGHT", 6, 0)
+  page.OwnerButton = owner
+
+  local add = UI.Button(page, "+", 52, function()
+    MF:AddReserve()
+  end, L.RESERVE_ADD_TIP, L.RESERVE_ADD_BODY)
+  add:SetPoint("LEFT", owner, "RIGHT", 6, 0)
+  page.AddButton = add
+
+  local resInset = UI.Create("Frame", page, "InsetFrameTemplate")
+  resInset:SetPoint("TOPLEFT", 10, -258)
+  resInset:SetPoint("TOPRIGHT", -10, -258)
+  resInset:SetHeight(92)
+  page.ReserveList = makeList(resInset, 18, function(row, data)
+    local link = data.reserve.itemID and SL.Catalog:ItemInfo(data.reserve.itemID)
+    local shown = link and link.link or T.Paint(data.reserve.item, T.color.white)
+    local who = data.reserve.owner and ("  → " .. MF:ColoredName(data.reserve.owner)) or ""
+    row.Text:SetText(T.Paint(data.reserve.kind == "soft" and "SR" or "HR", T.color.gold) .. "  " .. shown .. who)
+  end, nil, {
+    build = function(row)
+      local remove = CreateFrame("Button", nil, row)
+      remove:SetSize(16, 16)
+      remove:SetPoint("RIGHT", -4, 0)
+      remove:SetNormalTexture(T.tex.remove)
+      remove:SetPushedTexture(T.tex.removeDown)
+      remove:SetHighlightTexture(T.tex.removeHighlight, "ADD")
+      remove:SetScript("OnClick", function()
+        if row.data then
+          MF:RemoveReserve(row.data.index)
+        end
+      end)
+      UI.Tooltip(remove, L.RESERVE_REMOVE)
+      row.Remove = remove
+      row.Text:SetPoint("RIGHT", -26, 0)
+    end,
+    onEnter = function(row, data)
+      if data.reserve.itemID then
+        UI.ItemTooltip(row, data.reserve.itemID)
+      end
+    end,
+  })
+  page.Reserves = UI.Text(resInset, "small", "", "LEFT") -- empty state
+  page.Reserves:SetPoint("TOPLEFT", 10, -8)
+  page.Reserves:SetPoint("RIGHT", -10, 0)
 
   -- Preview of the chat line everyone will read
   local previewHeader = UI.Text(page, "header", L.PREVIEW_HEADER, "LEFT")
-  previewHeader:SetPoint("TOPLEFT", 16, -312)
-  local preview = UI.Text(page, "small", "", "LEFT")
-  preview:SetPoint("TOPLEFT", previewHeader, "BOTTOMLEFT", 0, -4)
-  preview:SetPoint("RIGHT", -16, 0)
+  previewHeader:SetPoint("TOPLEFT", 16, -358)
+  -- in its own mouse-enabled frame so the items in the line can be hovered and clicked, as in the chat
+  local previewFrame = CreateFrame("Frame", nil, page)
+  previewFrame:SetPoint("TOPLEFT", 16, -374)
+  previewFrame:SetPoint("TOPRIGHT", -16, -374)
+  previewFrame:SetHeight(42)
+  previewFrame:EnableMouse(true)
+  UI.EnableLinks(previewFrame)
+  local preview = UI.Text(previewFrame, "small", "", "LEFT")
+  preview:SetAllPoints()
+  preview:SetJustifyV("TOP")
+  if preview.SetMaxLines then
+    preview:SetMaxLines(3)
+  end
   page.Preview = preview
+  page.PreviewFrame = previewFrame
 
   local publish = UI.Button(page, L.PUBLISH, 180, function()
     SL.Contract:Publish()
     MF:Refresh()
-  end, L.PUBLISH, L.PUBLISH_TIP)
+  end, L.PUBLISH, L.PUBLISH_TIP .. "\n\n" .. L.CONTRACT_TIP)
   publish:SetPoint("BOTTOMLEFT", 14, 14)
   page.Publish = publish
   local clear = UI.Button(page, L.CLEAR_RESERVES, 140, function()
-    local c = SL.Contract:Get()
-    if c then
+    SL.Contract:Edit(function(c)
       c.reserves = {}
-    end
-    MF:Refresh()
+    end)
   end)
   clear:SetPoint("LEFT", publish, "RIGHT", 8, 0)
   local fromGame = UI.Button(page, L.USE_GAME_RULES, 170, function()
@@ -176,35 +202,47 @@ local function buildContractTab(page)
     MF:Refresh()
   end, L.USE_GAME_RULES, L.USE_GAME_RULES_TIP)
   fromGame:SetPoint("LEFT", clear, "RIGHT", 8, 0)
-
-  local tip = UI.Text(page, "muted", L.CONTRACT_TIP, "LEFT")
-  tip:SetPoint("BOTTOMLEFT", publish, "TOPLEFT", 2, 8)
-  tip:SetPoint("RIGHT", -16, 0)
 end
 
 local SOURCE_TEXT = { auto = "SOURCE_AUTO", copied = "SOURCE_COPIED", proposed = "SOURCE_PROPOSED", received = "SOURCE_RECEIVED" }
 
 local function refreshContractTab(page)
   local c = SL.Contract:Get()
-  page.Status:SetText("|T" .. (c and T.tex.ok or T.tex.wait) .. ":16:16|t " .. L.CONTRACT_CURRENT .. " " .. SL.Contract:Summary(c))
-  page.Source:SetText(c and (L[SOURCE_TEXT[c.source] or "SOURCE_AUTO"] .. " · " .. UI.FormatDate(c.createdAt)) or L.CONTRACT_NONE_HINT)
+  page.Status:SetText("|T" .. (c and T.tex.ok or T.tex.wait) .. ":16:16|t " .. L.CONTRACT_CURRENT .. " " .. SL.Contract:ShortSummary(c))
+  local sourceKey = c and (c.source == "proposed" and not c.publishedAt and "SOURCE_DRAFT" or SOURCE_TEXT[c.source]) or nil
+  page.Source:SetText(c and (L[sourceKey or "SOURCE_AUTO"] .. " · " .. UI.FormatDate(c.publishedAt or c.createdAt)) or L.CONTRACT_NONE_HINT)
+  page.Game:SetText(API.InGroup() and (T.Paint(L.GAME_NOW, T.color.gold) .. " " .. SL.Contract:GameStateLine()) or "")
   local names = {}
   if c and c.accepted then
     for name, t in pairs(c.accepted) do
       names[#names + 1] = "|T" .. T.tex.ok .. ":12:12|t " .. name .. " " .. (date and date("%H:%M", t) or "")
     end
+    table.sort(names) -- same order every time the tab refreshes
   end
   if c and c.publishedAt then
     page.Accepted:SetText(#names > 0 and (L.ACCEPTED_BY .. " " .. table.concat(names, "   ")) or L.ACCEPTED_NONE)
   else
     page.Accepted:SetText("")
   end
-  local lines = {}
-  for _, reserve in ipairs(c and c.reserves or {}) do
-    lines[#lines + 1] = "• " .. (reserve.kind == "soft" and "SR " or "HR ") .. reserve.item
-      .. (reserve.owner and (" → " .. reserve.owner) or "")
+  local rows = {}
+  for i, reserve in ipairs(c and c.reserves or {}) do
+    rows[#rows + 1] = { reserve = reserve, index = i }
   end
-  page.Reserves:SetText(#lines > 0 and table.concat(lines, "\n") or T.Paint(L.RESERVES_NONE, T.color.gray))
+  page.ReserveList:Set(rows)
+  page.Reserves:SetText(#rows == 0 and T.Paint(L.RESERVES_NONE, T.color.gray) or "")
+  local inst = SL.Catalog:Instance(SL.Catalog:Destination())
+  page.Dest:SetText(inst and string.format(L.DEST_FMT, inst.name) or L.DEST_NONE)
+  if page.owner and not Names.IsMe(page.owner) then
+    local present = false
+    for _, member in ipairs(API.GroupMembers()) do
+      present = present or Names.Same(member.name, page.owner)
+    end
+    if not present then
+      page.owner = Names.Me() -- that player left the group
+    end
+  end
+  page.Kind:SetText(page.kind == "soft" and "SR" or "HR")
+  page.OwnerButton:SetText("→ " .. (page.owner and MF:ColoredName(page.owner) or T.Paint(L.OWNER_NOBODY, T.color.gray)))
   page.Preview:SetText(T.Paint(SL.Contract:ChatLine(c), T.color.white))
   for _, check in ipairs(page.rules) do
     check:Refresh()
@@ -214,6 +252,111 @@ local function refreshContractTab(page)
   else
     page.Publish:Disable()
   end
+end
+
+-- Reserve editing -------------------------------------------------------------------------------------------------
+function MF:ColoredName(name)
+  for _, member in ipairs(API.GroupMembers()) do
+    if Names.Same(member.name, name) then
+      local color = API.ClassColor(member.class)
+      if color then
+        return "|c" .. (color.colorStr or T.Hex(color)) .. name .. "|r"
+      end
+    end
+  end
+  return T.Paint(name, T.color.white)
+end
+
+-- An item chosen in the loot picker or shift-clicked: its name goes in the box and its ID is remembered.
+function MF:PickItem(picked)
+  if not self.frame or type(picked) ~= "table" or type(picked.name) ~= "string" then
+    return
+  end
+  local page = self.pages.contract
+  page.picked = picked
+  page.ItemBox:SetText(picked.name)
+  page.ItemBox.Refresh()
+  if self.tab ~= "contract" or not self.frame:IsShown() then
+    self:Open("contract")
+  end
+  self:Refresh()
+end
+
+function MF:AddReserve()
+  local page = self.pages.contract
+  local text = Rules.Clean(page.ItemBox:GetText() or "", 80)
+  if not text then
+    return
+  end
+  local name = text:match("^%[(.-)%]$") or text
+  local picked = page.picked
+  local itemID = picked and picked.name == name and picked.id or SL.Catalog:FindItemID(SL.Catalog:Destination(), name)
+  local reserve = { item = name, itemID = itemID, owner = page.owner and Names.Short(page.owner) or nil, kind = page.kind }
+  SL.Contract:Edit(function(c)
+    Rules.Apply(c, { reserves = { reserve } })
+  end)
+  page.picked = nil
+  page.ItemBox:SetText("")
+  page.ItemBox.Refresh()
+  T.Play("checkOn")
+end
+
+function MF:RemoveReserve(index)
+  local c = SL.Contract:Get()
+  if not c or not c.reserves or not c.reserves[index] then
+    return
+  end
+  SL.Contract:Edit(function(contract)
+    table.remove(contract.reserves, index)
+  end)
+  T.Play("checkOff")
+end
+
+-- Who the reserve is for: a menu with your group (the game's own menu); without it, each click picks the next one.
+function MF:OwnerChoices()
+  local list = {}
+  for _, member in ipairs(API.GroupMembers()) do
+    list[#list + 1] = member.name
+  end
+  if #list == 0 then
+    list[1] = Names.Me()
+  end
+  return list
+end
+
+function MF:ChooseOwner(button)
+  local page = self.pages.contract
+  local choices = self:OwnerChoices()
+  local function choose(name)
+    page.owner = name
+    MF:Refresh()
+  end
+  if MenuUtil and MenuUtil.CreateContextMenu then
+    local ok = pcall(MenuUtil.CreateContextMenu, button, function(_, root)
+      root:CreateTitle(L.RESERVE_FOR)
+      for _, name in ipairs(choices) do
+        root:CreateButton(MF:ColoredName(name), function()
+          choose(name)
+        end)
+      end
+      root:CreateButton(T.Paint(L.OWNER_NOBODY, T.color.gray), function()
+        choose(nil)
+      end)
+      if #choices > 20 and root.SetScrollMode then
+        root:SetScrollMode(420)
+      end
+    end)
+    if ok then
+      return
+    end
+  end
+  local nextIndex = 1
+  for i, name in ipairs(choices) do
+    if page.owner and Names.Same(name, page.owner) then
+      nextIndex = i + 1
+    end
+  end
+  choose(choices[nextIndex]) -- past the last one: nobody
 end
 
 -- Tab 2: Journal ------------------------------------------------------------------------------------------------
@@ -255,15 +398,80 @@ local function journalItems()
 end
 
 -- Tab 3: Players ------------------------------------------------------------------------------------------------
-local function buildPlayersTab(page)
-  local search = UI.Create("EditBox", page, "SharedEditBoxTemplate")
-  search:SetSize(220, 32)
-  search:SetPoint("TOPLEFT", 14, -10)
-  search:SetAutoFocus(false)
-  if search.SetInstructions then
-    pcall(search.SetInstructions, search, L.SEARCH)
+-- Everyone you grouped with recently is listed (your current group first), with or without notes, so you can pick
+-- them. Tags are opinions: one per player; a new one replaces the old one and clicking the active one removes it.
+local TAGS = { { "tag_trusted", "TAG_TRUSTED" }, { "tag_ninja", "TAG_NINJA" }, { "tag_extortion", "TAG_EXTORTION" } }
+
+local function recentPlayers()
+  local recent = {}
+  local function add(name, class, inGroup, last)
+    local short = Names.Short(name)
+    if not short or Names.IsMe(short) then
+      return
+    end
+    local entry = recent[short] or { last = 0 }
+    entry.class = entry.class or (type(class) == "string" and class or nil)
+    entry.inGroup = entry.inGroup or inGroup or false
+    entry.last = math.max(entry.last, last or 0)
+    recent[short] = entry
   end
-  search:SetScript("OnTextChanged", function()
+  for _, member in ipairs(API.GroupMembers()) do
+    add(member.name, member.class, true, API.Now())
+  end
+  local current = SL.Run:Current()
+  if current then
+    for name, class in pairs(current.members or {}) do
+      add(name, class, false, current.startedAt)
+    end
+  end
+  for i = #SL.db.runs, math.max(1, #SL.db.runs - 15), -1 do
+    local run = SL.db.runs[i]
+    for name, class in pairs(run.members or {}) do
+      add(name, class, false, run.endedAt or run.startedAt)
+    end
+  end
+  return recent
+end
+
+local function playerList(filter)
+  local list = Memory.List(SL.db.players, API.Now(), SL.settings.memoryDays, filter)
+  local byName = {}
+  for _, entry in ipairs(list) do
+    byName[entry.name] = entry
+  end
+  local f = filter and filter ~= "" and Rules.Normalize(filter) or nil
+  for name, info in pairs(recentPlayers()) do
+    local entry = byName[name]
+    if entry then
+      entry.inGroup = info.inGroup
+      entry.record.class = entry.record.class or info.class
+    elseif not f or Rules.Normalize(name):find(f, 1, true) then
+      list[#list + 1] = {
+        name = name, record = { class = info.class, events = {}, last = info.last },
+        summary = Memory.Summary(nil), recent = true, inGroup = info.inGroup,
+      }
+    end
+  end
+  table.sort(list, function(a, b)
+    local ga, gb = a.inGroup and 1 or 0, b.inGroup and 1 or 0
+    if ga ~= gb then
+      return ga > gb
+    end
+    return (a.record.last or 0) > (b.record.last or 0)
+  end)
+  return list
+end
+MF.PlayerList = playerList
+
+local function buildPlayersTab(page)
+  local search = UI.Input(page, 240, L.SEARCH, 48)
+  search.holder:SetPoint("TOPLEFT", 14, -14)
+  search:HookScript("OnTextChanged", function()
+    -- typing decides who the buttons act on: that player if known, otherwise the typed name (never the player
+    -- that happened to be selected before: that was the real-client bug)
+    local typed = Rules.Clean(search:GetText() or "", 48)
+    local short = typed and Names.Short(typed)
+    page.selected = (short and SL.db.players[short]) and short or nil
     MF:Refresh()
   end)
   page.Search = search
@@ -275,108 +483,136 @@ local function buildPlayersTab(page)
     local color = API.ClassColor(data.record.class)
     local name = color and ("|c" .. (color.colorStr or T.Hex(color)) .. data.name .. "|r") or data.name
     local tone = data.summary.tone and UI.ToneLine(data.summary.tone) or ("|T" .. T.tex.wait .. ":14:14|t")
-    row.Text:SetText(tone .. "  " .. name .. "   " .. T.Paint(SL.MemoryHooks.EventText(data.summary.latest), T.color.gray))
+    local here = data.inGroup and ("  " .. T.Paint(L.IN_GROUP_NOW, T.color.green)) or ""
+    local latest = data.summary.latest or data.summary.latestAny
+    local extra = latest and SL.MemoryHooks.EventText(latest) or L.NO_NOTES
+    local mark = page.selected == data.name and T.Paint("» ", T.color.gold) or ""
+    row.Text:SetText(mark .. tone .. "  " .. name .. here .. "   " .. T.Paint(extra, T.color.gray))
   end, function(data)
     page.selected = data.name
     MF:Refresh()
   end)
 
-  local detail = UI.Text(page, "small", "", "LEFT")
-  detail:SetPoint("TOPLEFT", inset, "BOTTOMLEFT", 6, -8)
-  detail:SetPoint("RIGHT", -16, 0)
+  -- detail in its own mouse-enabled frame so the item links in it can be hovered and clicked
+  local detailFrame = CreateFrame("Frame", nil, page)
+  detailFrame:SetPoint("TOPLEFT", inset, "BOTTOMLEFT", 0, -4)
+  detailFrame:SetPoint("TOPRIGHT", inset, "BOTTOMRIGHT", 0, -4)
+  detailFrame:SetHeight(74)
+  detailFrame:EnableMouse(true)
+  UI.EnableLinks(detailFrame)
+  local detail = UI.Text(detailFrame, "small", "", "LEFT")
+  detail:SetPoint("TOPLEFT", 6, -2)
+  detail:SetPoint("RIGHT", -6, 0)
+  detail:SetJustifyV("TOP")
   page.Detail = detail
+  page.DetailFrame = detailFrame
 
-  -- The buttons act on the selected player, or on the name typed in the search box when nobody matches it
-  -- (so you can note someone who wronged you before you had the addon).
   local function target()
     if page.selected then
       return page.selected
     end
-    local typed = SL.Rules.Clean(page.Search:GetText() or "", 48)
-    return typed and SL.Names.Short(typed) or nil
+    local typed = Rules.Clean(page.Search:GetText() or "", 48)
+    return typed and Names.Short(typed) or nil
   end
   page.Target = target
   local function tag(kind)
     return function()
       local name = target()
       if name then
-        Memory.Add(SL.db.players, name, { kind = kind, t = API.Now(), place = API.PlaceName() })
-        page.selected = SL.Names.Short(name)
+        Memory.SetTag(SL.db.players, name, kind, API.Now(), API.PlaceName())
+        page.selected = Names.Short(name)
+        SL:Fire("MEMORY_CHANGED", name)
         MF:Refresh()
       end
     end
   end
 
-  local note = UI.Create("EditBox", page, "SharedEditBoxTemplate")
-  note:SetSize(400, 32)
-  note:SetPoint("BOTTOMLEFT", 14, 44)
-  note:SetAutoFocus(false)
-  note:SetMaxLetters(200)
-  if note.SetInstructions then
-    pcall(note.SetInstructions, note, L.NOTE_PLACEHOLDER)
-  end
+  local note = UI.Input(page, 400, L.NOTE_PLACEHOLDER, 200)
+  note.holder:SetPoint("BOTTOMLEFT", 14, 46)
   page.Note = note
   local function addNote()
     local name = target()
-    local text = SL.Rules.Clean(note:GetText() or "", 200)
+    local text = Rules.Clean(note:GetText() or "", 200)
     if name and text then
       Memory.Add(SL.db.players, name, { kind = "note", t = API.Now(), note = text, place = API.PlaceName() })
-      page.selected = SL.Names.Short(name)
+      page.selected = Names.Short(name)
       note:SetText("")
       note:ClearFocus()
+      SL:Fire("MEMORY_CHANGED", name)
       MF:Refresh()
     end
   end
   note:SetScript("OnEnterPressed", addNote)
-  note:SetScript("OnEscapePressed", function(self)
-    self:ClearFocus()
-  end)
   page.NoteButton = UI.Button(page, L.NOTE_ADD, 110, addNote, L.NOTE_ADD, L.NOTE_TIP)
-  page.NoteButton:SetPoint("LEFT", note, "RIGHT", 8, 0)
-  local buttons = {
-    { L.TAG_TRUSTED, tag("tag_trusted") }, { L.TAG_NINJA, tag("tag_ninja") }, { L.TAG_EXTORTION, tag("tag_extortion") },
-    { L.FORGET, function()
-      if page.selected then
-        Memory.Forget(SL.db.players, page.selected)
-        page.selected = nil
-        MF:Refresh()
-      end
-    end },
-  }
+  page.NoteButton:SetPoint("LEFT", note.holder, "RIGHT", 8, 0)
   page.tagButtons = {}
-  for i, spec in ipairs(buttons) do
-    local b = UI.Button(page, spec[1], 122, spec[2])
+  for i, spec in ipairs(TAGS) do
+    local b = UI.Button(page, L[spec[2]], 122, tag(spec[1]), L[spec[2]], L.TAG_TIP)
     b:SetPoint("BOTTOMLEFT", 14 + (i - 1) * 128, 14)
     page.tagButtons[i] = b
   end
+  local forget = UI.Button(page, L.FORGET, 122, function()
+    local name = target()
+    if name and SL.db.players[name] then
+      Memory.Forget(SL.db.players, name)
+      page.selected = nil
+      SL:Fire("MEMORY_CHANGED", name)
+      MF:Refresh()
+    end
+  end)
+  forget:SetPoint("BOTTOMLEFT", 14 + #TAGS * 128, 14)
+  page.tagButtons[#TAGS + 1] = forget
 end
 
 local function refreshPlayersTab(page)
-  local filter = page.Search:GetText()
-  local list = Memory.List(SL.db.players, API.Now(), SL.settings.memoryDays, filter)
-  if #list == 0 then
-    page.Detail:SetText(T.Paint(L.PLAYERS_EMPTY, T.color.gray))
-  end
+  local list = playerList(page.Search:GetText())
   page.List:Set(list)
-  local record = page.selected and SL.db.players[page.selected]
+  local name = page.Target()
+  local record = name and SL.db.players[name]
   if record then
-    local lines = { T.Paint(page.selected, T.color.gold) .. "  " .. (API.LocalizedClass(record.class) or "") }
-    for i = #record.events, math.max(1, #record.events - 2), -1 do
+    local lines = { T.Paint(name, T.color.gold) .. "  " .. (API.LocalizedClass(record.class) or "")
+      .. (record.seen and record.seen > 0 and T.Paint("  ·  " .. string.format(L.TOOLTIP_SEEN, record.seen), T.color.gray) or "") }
+    for i = #record.events, math.max(1, #record.events - 3), -1 do
       lines[#lines + 1] = "• " .. SL.MemoryHooks.EventText(record.events[i])
     end
+    if #record.events == 0 then
+      lines[#lines + 1] = T.Paint(L.NO_NOTES, T.color.gray)
+    end
     page.Detail:SetText(table.concat(lines, "\n"))
-  elseif #list > 0 then
+  elseif name then
+    local listed = false
+    for _, entry in ipairs(list) do
+      if entry.name == name then
+        listed = true
+      end
+    end
+    page.Detail:SetText(T.Paint(string.format(listed and L.PLAYER_NO_NOTES or L.NEW_PLAYER_HINT, name), T.color.gray))
+  elseif #list == 0 then
+    page.Detail:SetText(T.Paint(L.PLAYERS_EMPTY, T.color.gray))
+  else
     page.Detail:SetText(T.Paint(L.PLAYERS_PICK, T.color.gray))
   end
-  local name = page.Target()
-  if not record and name and #list == 0 then
-    page.Detail:SetText(T.Paint(string.format(L.NEW_PLAYER_HINT, name), T.color.gray))
-  end
+  local active = record and Memory.ActiveTag(record)
   for i, b in ipairs(page.tagButtons) do
-    local enabled = name ~= nil and (i < #page.tagButtons or record ~= nil) -- "Forget" needs an existing record
-    if enabled then b:Enable() else b:Disable() end
+    local isForget = i > #TAGS
+    if name and (not isForget or record) then
+      b:Enable()
+    else
+      b:Disable()
+    end
+    if not isForget then
+      if active == TAGS[i][1] then
+        b:LockHighlight()
+      else
+        b:UnlockHighlight()
+      end
+    end
   end
-  if name then page.NoteButton:Enable() else page.NoteButton:Disable() end
+  if name then
+    page.NoteButton:Enable()
+  else
+    page.NoteButton:Disable()
+  end
 end
 
 -- Tab 4: Help ---------------------------------------------------------------------------------------------------
@@ -400,6 +636,11 @@ local function helpItems()
     { "mark", L.CMD_DEMO_MARK }, { "summary", L.CMD_DEMO_SUMMARY }, { "welcome", L.CMD_WELCOME },
     { "settings", L.CMD_SETTINGS }, { "exceptions", L.CMD_RESET_EXCEPTIONS } }) do
     line(T.Paint("/safeloot " .. cmd[1], T.color.white) .. " — " .. cmd[2])
+  end
+  head(L.HELP_LOOT_TITLE)
+  line(L.HELP_LOOT)
+  if SL.Catalog.index.credit then
+    line(T.Paint(string.format(L.LOOT_CREDIT, SL.Catalog.index.credit), T.color.gray))
   end
   head(L.HELP_PRIVACY_TITLE)
   line(L.HELP_PRIVACY)
@@ -440,6 +681,9 @@ function MF:Build()
   end)
   frame:SetScript("OnHide", function()
     T.Play("close")
+    if SL.LootPicker then
+      SL.LootPicker:Hide()
+    end
   end)
 
   local settings = UI.Button(frame, L.SETTINGS, 90, function()
@@ -459,6 +703,10 @@ function MF:Build()
     local tab = UI.Create("Button", frame, "PanelTabButtonTemplate", "SafeLootMainFrameTab" .. i)
     tab:SetID(i)
     tab:SetText(L["TAB_" .. string.upper(key)])
+    if i == 1 then
+      -- seen in the real client: without this anchor no tab is drawn (Blizzard only chains tabs 2..n)
+      tab:SetPoint("TOPLEFT", frame, "BOTTOMLEFT", 11, 2)
+    end
     tab:HookScript("OnClick", function()
       T.Play("tab")
       MF:Open(key)
@@ -534,15 +782,23 @@ function MF:OnEnable()
   SL:On("RUN_FINISHED", self, function()
     MF:Refresh()
   end)
-  -- shift-click an item into the reserve box
-  if type(ChatEdit_InsertLink) == "function" then
-    hooksecurefunc("ChatEdit_InsertLink", function(link)
-      local box = MF.linkTarget
-      if box and box:HasFocus() and type(link) == "string" then
-        box:SetText(link:match("%[(.-)%]") or link)
-      end
-    end)
-  end
+  SL:On("CATALOG_CHANGED", self, function()
+    MF:Refresh()
+  end)
+  -- Shift-click an item into the reserve box while it has the focus
+  API.HookInsertLink(function(link)
+    local box = MF.linkTarget
+    if not box or not box:HasFocus() or type(link) ~= "string" or API.IsSecret(link) then
+      return
+    end
+    local name = link:match("|h%[(.-)%]|h") or link:match("%[(.-)%]")
+    if SL.Diagnostics then
+      SL.Diagnostics:Observe("insert_link", { item = API.ItemIDFromLink(link) ~= nil })
+    end
+    if name then
+      MF:PickItem({ id = API.ItemIDFromLink(link), name = name, link = link })
+    end
+  end)
   SL:RegisterCommand("rules", function()
     MF:Open("contract")
   end, L.CMD_CONTRACT, { "reglas", "contrato" })

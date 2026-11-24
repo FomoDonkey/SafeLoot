@@ -1,7 +1,11 @@
 package-as: SafeLoot
 
+move-folders:
+  SafeLoot/SafeLoot_LootData: SafeLoot_LootData
+
 ignore:
   - tests
+  - art
   - tools
   - docs
   - README.md

@@ -74,6 +74,7 @@ function UI.Button(parent, text, width, onClick, tipTitle, tipBody)
   local button = UI.Create("Button", parent, "UIPanelButtonTemplate")
   button:SetSize(width or 140, 24)
   button:SetText(text)
+  UI.FitText(button, (width or 140) - 14)
   button:SetScript("OnClick", function(self, mouse)
     SL.SafeCall("button " .. tostring(text), onClick, self, mouse)
   end)
@@ -108,6 +109,85 @@ function UI.Check(parent, label, getValue, setValue, tipBody)
     self:SetChecked(getValue() and true or false)
   end
   return check
+end
+
+-- Text input. Seen in the real client (2026-11-24): SharedEditBoxTemplate draws its art at a fixed size and
+-- spills outside small boxes, and SetInstructions is missing. So, like BlazonGuild's own input: a classic
+-- tooltip-border box with a dark background, the game's font, and a grey hint shown while the box is empty.
+function UI.Input(parent, width, placeholder, maxLetters)
+  local holder = UI.Create("Frame", parent, "BackdropTemplate")
+  holder:SetSize(width, 26)
+  if holder.SetBackdrop then
+    holder:SetBackdrop({
+      bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
+      edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+      tile = true, tileSize = 16, edgeSize = 12,
+      insets = { left = 3, right = 3, top = 3, bottom = 3 },
+    })
+    holder:SetBackdropColor(0, 0, 0, 0.55)
+    holder:SetBackdropBorderColor(0.65, 0.65, 0.65, 0.9)
+  end
+  local box = CreateFrame("EditBox", nil, holder)
+  box:SetPoint("TOPLEFT", 8, -3)
+  box:SetPoint("BOTTOMRIGHT", -8, 3)
+  box:SetFontObject(T.Font("body"))
+  box:SetAutoFocus(false)
+  box:SetMaxLetters(maxLetters or 120)
+  box.holder = holder
+  local hint = UI.Text(holder, "muted", placeholder or "", "LEFT")
+  hint:SetPoint("LEFT", 9, 0)
+  hint:SetPoint("RIGHT", -8, 0)
+  hint:SetWordWrap(false)
+  box.Hint = hint
+  local function update()
+    hint:SetShown((box:GetText() or "") == "" and not box:HasFocus())
+  end
+  box:SetScript("OnEditFocusGained", update)
+  box:SetScript("OnEditFocusLost", update)
+  box:SetScript("OnTextChanged", update)
+  box:SetScript("OnEscapePressed", function(self)
+    self:ClearFocus()
+  end)
+  box:SetScript("OnEnterPressed", function(self)
+    self:ClearFocus()
+  end)
+  holder:EnableMouse(true)
+  holder:SetScript("OnMouseDown", function()
+    box:SetFocus()
+  end)
+  box.Refresh = update
+  update()
+  return box
+end
+
+-- Item links in our texts behave like links in chat: hover shows the item, click opens it (shift-click puts it in
+-- the chat box, ctrl-click previews it), through the game's own SetItemRef. Seen in the real client: without
+-- this, the links in the journal, toasts and summary were dead text.
+function UI.EnableLinks(frame)
+  if frame.SetHyperlinksEnabled then
+    frame:SetHyperlinksEnabled(true)
+  end
+  frame:SetScript("OnHyperlinkEnter", function(self, link)
+    if not GameTooltip or type(link) ~= "string" then
+      return
+    end
+    GameTooltip:SetOwner(self, "ANCHOR_CURSOR")
+    if pcall(GameTooltip.SetHyperlink, GameTooltip, link) then
+      GameTooltip:Show()
+    else
+      GameTooltip:Hide()
+    end
+  end)
+  frame:SetScript("OnHyperlinkLeave", function()
+    if GameTooltip then
+      GameTooltip:Hide()
+    end
+  end)
+  frame:SetScript("OnHyperlinkClick", function(self, link, text, button)
+    if SetItemRef then
+      pcall(SetItemRef, link, text, button, self)
+    end
+  end)
 end
 
 -- A card with the game's "Dialog" frame (diamond metal border, as StaticPopup) over a dark dialog background.
@@ -197,3 +277,101 @@ function UI.FormatDate(t)
   end
   return date and date("%d-%m %H:%M", t) or tostring(t)
 end
+
+-- Scrolling list: WowScrollBoxList + MinimalScrollBar (verified templates), one Button row per element.
+-- onInit(row, data) fills a row; onClick(data, mouseButton, row); opts.build(row) adds widgets to a new row;
+-- opts.onEnter / opts.onLeave (row, data) for tooltips.
+function UI.List(parent, rowHeight, onInit, onClick, opts)
+  opts = opts or {}
+  local box = UI.Create("Frame", parent, "WowScrollBoxList")
+  local bar = UI.Create("EventFrame", parent, "MinimalScrollBar")
+  box:SetPoint("TOPLEFT", 4, -4)
+  box:SetPoint("BOTTOMRIGHT", -20, 4)
+  bar:SetPoint("TOPLEFT", box, "TOPRIGHT", 4, 0)
+  bar:SetPoint("BOTTOMLEFT", box, "BOTTOMRIGHT", 4, 0)
+  local list = { box = box, bar = bar }
+  if CreateScrollBoxListLinearView and ScrollUtil and ScrollUtil.InitScrollBoxListWithScrollBar and CreateDataProvider then
+    local view = CreateScrollBoxListLinearView()
+    view:SetElementExtent(rowHeight)
+    view:SetElementInitializer("Button", function(row, data)
+      if not row.Text then
+        row.Highlight = row:CreateTexture(nil, "HIGHLIGHT")
+        row.Highlight:SetAllPoints()
+        row.Highlight:SetColorTexture(1, 0.82, 0, 0.08)
+        row.Text = UI.Text(row, "small", "", "LEFT")
+        row.Text:SetPoint("LEFT", 6, 0)
+        row.Text:SetPoint("RIGHT", -6, 0)
+        row.Text:SetWordWrap(false)
+        UI.EnableLinks(row)
+        if row.RegisterForClicks then
+          row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+        end
+        row:SetScript("OnClick", function(self, mouse)
+          if onClick and self.data then
+            SL.SafeCall("list click", onClick, self.data, mouse, self)
+          end
+        end)
+        row:SetScript("OnEnter", function(self)
+          if opts.onEnter and self.data then
+            SL.SafeCall("list enter", opts.onEnter, self, self.data)
+          end
+        end)
+        row:SetScript("OnLeave", function(self)
+          if opts.onLeave then
+            SL.SafeCall("list leave", opts.onLeave, self, self.data)
+          elseif GameTooltip then
+            GameTooltip:Hide()
+          end
+        end)
+        if opts.build then
+          opts.build(row)
+        end
+      end
+      row.data = data
+      onInit(row, data)
+    end)
+    ScrollUtil.InitScrollBoxListWithScrollBar(box, bar, view)
+    list.provider = CreateDataProvider()
+    box:SetDataProvider(list.provider)
+    list.view = view
+  end
+  list.Set = function(self, items)
+    if self.provider then
+      self.provider:Flush()
+      for _, item in ipairs(items) do
+        self.provider:Insert(item)
+      end
+    end
+  end
+  return list
+end
+
+-- Item tooltip for a row (by item ID, or by link when only the link is known).
+function UI.ItemTooltip(owner, itemID, link)
+  if not GameTooltip then
+    return
+  end
+  GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
+  local ok = false
+  if itemID and GameTooltip.SetItemByID then
+    ok = pcall(GameTooltip.SetItemByID, GameTooltip, itemID)
+  end
+  if not ok and type(link) == "string" then
+    ok = pcall(GameTooltip.SetHyperlink, GameTooltip, link)
+  end
+  if ok then
+    GameTooltip:Show()
+  else
+    GameTooltip:Hide()
+  end
+end
+
+-- A button whose label never spills out of it: one line, cut with "..." by the game when too long.
+function UI.FitText(button, width)
+  local fs = button.GetFontString and button:GetFontString()
+  if fs then
+    fs:SetWidth(width)
+    fs:SetWordWrap(false)
+  end
+end
+

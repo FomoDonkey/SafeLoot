@@ -7,10 +7,10 @@
 ## Notes-frFR: Vous protège dans les groupes d'inconnus : alarme si les règles du butin changent, jets de Besoin impossibles signalés et mémoire privée des joueurs.
 ## Notes-ptBR: Protege você em grupos com desconhecidos: alarme se as regras de saque mudarem, rolagens de Necessidade impossíveis marcadas e uma memória privada de jogadores.
 ## Author: FomoDonkey
-## Version: 0.2.0
+## Version: 0.4.0
 ## SavedVariables: SafeLootDB
 ## SavedVariablesPerCharacter: SafeLootCharDB
-## IconTexture: Interface\Icons\INV_Misc_Bag_10
+## IconTexture: Interface\AddOns\SafeLoot\Media\Icon
 ## AddonCompartmentFunc: SafeLoot_OnAddonCompartmentClick
 ## AddonCompartmentFuncOnEnter: SafeLoot_OnAddonCompartmentEnter
 ## AddonCompartmentFuncOnLeave: SafeLoot_OnAddonCompartmentLeave
@@ -25,10 +25,12 @@ Locales\ptBR.lua
 Core\Names.lua
 Core\API.lua
 Core\Store.lua
+Data\Instances.lua
 Logic\Proficiency.lua
 Logic\Rules.lua
 Logic\Judge.lua
 Logic\Memory.lua
+Logic\LootBook.lua
 UI\Theme.lua
 UI\Widgets.lua
 UI\Alert.lua
@@ -38,7 +40,9 @@ Modules\Watcher.lua
 Modules\LootWatch.lua
 Modules\MemoryHooks.lua
 Modules\Contract.lua
+Modules\Catalog.lua
 UI\MainFrame.lua
+UI\LootPicker.lua
 UI\Settings.lua
 UI\Indicator.lua
 UI\Welcome.lua

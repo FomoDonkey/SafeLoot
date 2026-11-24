@@ -1,6 +1,7 @@
 -- The run journal and the end-of-run summary (docs/PROMPT_MAESTRO.md §4.5).
--- A run starts when you are in a group and enter an instance (or form a group inside one) and ends when you
--- leave the instance or the group. Everything the other modules notice is logged here.
+-- A session starts when you join a group (in the world or in an instance) and ends when you leave the group.
+-- Entering an instance turns the session into that instance's run; leaving the instance for good (10 minutes
+-- outside, or another instance) ends it. Everything the other modules notice is logged here.
 local _, SL = ...
 local Run = SL:NewModule("Run")
 SL.Run = Run
@@ -10,8 +11,9 @@ function Run:Current()
   return SL.char and SL.char.run or nil
 end
 
-function Run:Start(place)
+function Run:Start(place, isInstance)
   local run = {
+    instance = isInstance and true or false,
     id = tostring(API.Now()) .. "-" .. math.random(1000, 9999),
     startedAt = API.Now(),
     place = place or API.PlaceName() or "?",
@@ -66,6 +68,13 @@ function Run:Finish()
   end
   SL.char.run = nil
   run.endedAt = API.Now()
+  -- everyone you played with is "seen" in your memory (no judgement, just "met before"), even in a quiet group:
+  -- that is how the Players tab can list the people you grouped with
+  if SL.settings.memory then
+    for name, class in pairs(run.members) do
+      SL.Memory.Add(SL.db.players, name, { kind = "grouped", t = run.endedAt, class = type(class) == "string" and class or nil })
+    end
+  end
   local hasContent = #run.events > 0 or next(run.drops) ~= nil
   if not hasContent then
     return
@@ -73,12 +82,6 @@ function Run:Finish()
   table.insert(SL.db.runs, run)
   while #SL.db.runs > 50 do
     table.remove(SL.db.runs, 1)
-  end
-  -- everyone you played with is "seen" in your memory (no judgement, just "met before")
-  if SL.settings.memory then
-    for name, class in pairs(run.members) do
-      SL.Memory.Add(SL.db.players, name, { kind = "grouped", t = run.endedAt, class = type(class) == "string" and class or nil })
-    end
   end
   SL:Fire("RUN_FINISHED", run)
   if not SL.settings.summaryAlways and not Run:HasIssues(run) then
@@ -103,8 +106,8 @@ function Run:SummaryLines(run)
   local lines = {}
   local broken = false
   for _, event in ipairs(run.events) do
-    if event.kind == "rules_changed" and (event.severity or 0) >= 3 then
-      broken = true
+    if event.kind == "rules_changed" and (event.severity or 0) >= 2 then
+      broken = true -- same threshold that makes the summary pop up
     end
   end
   lines[#lines + 1] = string.format(L.SUMMARY_HEADER, run.place or "?", UI.FormatDate(run.startedAt))
@@ -127,7 +130,7 @@ function Run:SummaryLines(run)
 end
 
 local function stripCodes(text)
-  return (text:gsub("|T.-|t", ""):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|H.-|h", ""):gsub("|h", ""))
+  return (text:gsub("|T.-|t", ""):gsub("|cn[%w_]+:", ""):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|H.-|h", ""):gsub("|h", ""))
 end
 
 function Run:ShowSummary(run)
@@ -142,6 +145,7 @@ function Run:ShowSummary(run)
     card.Body:SetPoint("RIGHT", -20, 0)
     card.Body:SetJustifyV("TOP")
     card.Body:SetSpacing(3)
+    UI.EnableLinks(card)
     local close = UI.Create("Button", card, "UIPanelCloseButton")
     close:SetPoint("TOPRIGHT", -4, -4)
     card.Copy = UI.Button(card, L.SUMMARY_COPY, 130, function()
@@ -230,18 +234,26 @@ function Run:Check()
     end
     return
   end
+  local place = API.PlaceName()
   if inInstance then
-    local place = API.PlaceName()
-    if run and run.place ~= place then
+    if run and run.instance and run.place ~= place then
       self:Finish() -- a different instance: the previous run is over
       run = nil
     end
-    if not run then
-      self:Start(place)
+    if run and not run.instance then
+      -- the group session becomes this instance's run (rules agreed at the meeting stone stay with it)
+      run.instance, run.place, run.outsideSince = true, place or run.place, nil
+      self:UpdateMembers()
+    elseif not run then
+      self:Start(place, true)
     else
       run.outsideSince = nil
       self:UpdateMembers()
     end
+  elseif not run then
+    self:Start(place, false) -- a group in the open world
+  elseif not run.instance then
+    self:UpdateMembers()
   elseif run then
     -- released as a ghost, went out to repair or to summon: the run goes on for a while
     run.outsideSince = run.outsideSince or API.Now()

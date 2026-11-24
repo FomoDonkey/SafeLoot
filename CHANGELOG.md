@@ -1,5 +1,73 @@
 # Changelog
 
+## 0.4.0 — 2026-11-24 — pick instead of type, and the full audit
+Not yet seen in the real client: everything below is checked offline and against the Forever UI source (build 71091).
+
+New:
+- Choose the dungeon or raid, sorted by level: the 28 dungeons of Forever (nine new ones included) and Onyxia's Lair, with their bosses, from the Forever client data in the five languages. Inside a dungeon it is set on its own. Season of Discovery leftovers in the client data are left out; the other raids are recognised but not offered until they open.
+- "Loot..." opens the bosses of that dungeon with their items: hover for the tooltip, click to pick, Shift/Ctrl-click as in the game.
+- Forever does not ship loot tables, so items are LEARNED from real drops (roll history, boss corpses) and exchanged with SafeLoot users in your group: item numbers only, never names or chat; can be turned off. A dungeon nobody has seen yet shows its bosses without items.
+- Optional second add-on SafeLoot_LootData (GPL-2.0, derived from AtlasLoot Classic Forever 1.4.9): loot of the 28 dungeons of Forever, the nine new ones included, and Onyxia from the first day. Every item is marked "not seen yet" until it is really seen dropping; items the server does not know are hidden.
+- Who the reserve is for: menu with your group. HR / SR switch. Each reserve is a real item link and has its own remove button.
+- The published chat line carries real item links when they fit (255 bytes; links are never cut).
+- Rules prepared alone (dungeon, reserves) are kept when the group forms.
+- "Accept the change" on the alarm makes the new loot method the agreed one.
+- Players tab: your group and recent groups are listed, with or without notes.
+- Toasts have a close button.
+- Own logo and in-game icon: "the chest that watches", original hand-painted-style artwork (art/logo: Blender scene and painter, as code).
+
+Fixed:
+- Item links in the addon's texts can be hovered and clicked.
+- Tags went to the previously selected player and piled up into "Mixed": one opinion per player, and the typed name wins.
+- Shift-click into the reserve box never worked: Forever calls ChatFrameUtil.InsertLink, not ChatEdit_InsertLink.
+- Item links of the real client ("|cnIQ3:") left junk in cleaned text and in the copied summary.
+- The rules bar stayed red after using the game's rules; the place outside instances was the continent; people from quiet groups were not remembered; a player with only a written note looked empty.
+- "ya voy" no longer counts as agreeing, "res pls" is not a reserve, "estoy libre" is not a loot rule.
+- Editing published rules makes a draft; publishing during the anti-spam pause records nothing; "Save evidence" twice writes one note.
+- Header lines of the Rules tab and button labels never spill over other controls.
+
+Checks: 543 offline, plus 34 deliberate breakages, all caught.
+
+## 0.3.0 — 2026-11-24 — polish after the first real test (desktop PC: saved data + screenshots)
+Confirmed in the real client:
+- 0 internal errors.
+- 28/28 functions, 13/13 native templates and 10/10 events present.
+- Names read correctly with their surname.
+- Addon messages echo in 252 ms (whisper and party).
+- PARTY_LOOT_METHOD_CHANGED fires outside instances (3 times) and the loot method is readable (7/7).
+- The real alarm fired when the leader switched to master loot, and "Save evidence" noted it.
+- Party chat is readable outside instances (19 lines).
+
+Fixed and improved:
+- Free for all now raises a red alarm with its own text: anyone can loot anything without a roll.
+- More ways of saying yes are understood: "yap", "ya", "va", "okis", "kk", "yeah"… In the real test the friend's "yap" was not counted.
+- Rules bar:
+  - darker background and white, normal-size text (it was lost over bright scenery);
+  - short form (MS>OS) with "2/3 agreed".
+- Rules tab:
+  - new "In the game now" line: method, rolls-from quality (in its colour) and leader;
+  - no empty gap above "Propose rules".
+- The published chat line uses the short labels.
+- The journal also records groups in the open world: the real alarm happened outside an instance and was only in the player's card. Entering an instance turns the group session into that instance's run.
+
+Checks: 421 offline.
+
+## 0.2.1 — 2026-11-24 — first fixes from the real game client (desktop PC, screenshots)
+Seen working in the client:
+- the welcome card;
+- the demo alarm panel;
+- the main window (portrait, title, Settings button);
+- the rules bar, which shows on joining a group ("Botín de grupo");
+- the automatic snapshot of the rules.
+
+Fixed:
+- No tab was drawn. Blizzard's PanelTemplates_AnchorTabs only chains tabs 2..n, so the first tab is now anchored to the bottom of the window.
+- "BoE on Greed" overlapped the long first rule label; it now has its own row.
+- SharedEditBoxTemplate drew its art outside small boxes and had no hint text. It is replaced by our own input: a classic tooltip-border box, the game's font, and a grey hint while the box is empty.
+- The tip about agreeing at the meeting stone moved into the Publish button's tooltip.
+
+Checks: 408 offline.
+
 ## 0.2.0 — 2026-11-24 — rules bar, welcome, "It's a mistake", notes, help (not yet tested in the game client)
 - **Rules bar**: while you are in a group, a small bar (the game's tooltip border) shows the rules in force.
   - It turns red with "Rules changed!" when they deviate from what was agreed, and goes back when they are restored.

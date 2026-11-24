@@ -3,3 +3,5 @@ __pycache__/
 .venv/
 events.jsonl
 tools/remote.local.json
+tools/.db2cache/
+art/logo/v1/

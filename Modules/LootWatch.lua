@@ -27,7 +27,8 @@ function LW:Mark(roll, item, verdict)
   })
   if verdict.level == Judge.IMPOSSIBLE and SL.settings.memory then
     SL.Memory.Add(SL.db.players, who, {
-      kind = "need_impossible", t = API.Now(), place = API.PlaceName(), item = item.name, class = roll.playerClass,
+      kind = "need_impossible", t = API.Now(), place = API.PlaceName(), item = item.name, link = item.link,
+      class = roll.playerClass,
     })
     SL:Fire("MEMORY_CHANGED", who)
   end

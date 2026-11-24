@@ -57,8 +57,11 @@ T.tex = {
   wait = "Interface\\RaidFrame\\ReadyCheck-Waiting",
   alert = "Interface\\DialogFrame\\UI-Dialog-Icon-AlertNew",
   skull = "Interface\\TargetingFrame\\UI-RaidTargetingIcon_8",
-  portrait = "Interface\\Icons\\INV_Misc_Bag_10",
+  portrait = "Interface\\AddOns\\SafeLoot\\Media\\Portrait",
   dialogBg = "Interface\\DialogFrame\\UI-DialogBox-Background-Dark",
+  remove = "Interface\\Buttons\\UI-GroupLoot-Pass-Up",
+  removeDown = "Interface\\Buttons\\UI-GroupLoot-Pass-Down",
+  removeHighlight = "Interface\\Buttons\\UI-GroupLoot-Pass-Highlight",
 }
 
 -- tone -> icon + colour (+ a word for colour-blind players, see Locales TONE_*)

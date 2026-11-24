@@ -89,7 +89,7 @@ function RESULTS() return results end
 """
 
 
-def runtime(prepare=""):
+def runtime(prepare="", pack=False):
     lua = lua51.LuaRuntime(unpack_returned_tuples=True)
     lua.execute(HARNESS)
     lua.execute(read("tests/wow_mock.lua"))
@@ -101,12 +101,15 @@ def runtime(prepare=""):
     for path in toc_files():
         if path.endswith(".lua"):
             runner(read(path), path)
-    lua.execute("SIM.Fire('ADDON_LOADED', '" + ADDON + "'); SIM.Fire('PLAYER_LOGIN'); SIM.RunTimers()")
+    lua.execute("SIM.Fire('ADDON_LOADED', '" + ADDON + "')")
+    if pack:  # the data add-on loads after SafeLoot, before login
+        lua.execute(read("SafeLoot_LootData/Data.lua"))
+    lua.execute("SIM.Fire('PLAYER_LOGIN'); SIM.RunTimers()")
     return lua
 
 
-def run_spec(spec_path, prepare=""):
-    lua = runtime(prepare)
+def run_spec(spec_path, prepare="", pack=False):
+    lua = runtime(prepare, pack)
     lua.execute(read(spec_path))
     for r in lua.eval("RESULTS()").values():
         check(f"{os.path.basename(spec_path)} · {r.name}", r.ok, r.err)
@@ -178,6 +181,9 @@ syntax()
 run_spec("tests/specs/logic.lua")
 run_spec("tests/specs/scenarios.lua")
 run_spec("tests/specs/point2.lua")
+run_spec("tests/specs/audit3.lua")
+run_spec("tests/specs/lootbook.lua")
+run_spec("tests/specs/lootpack.lua", pack=True)
 run_spec("tests/specs/locale_switch.lua", "SIM.locale = 'enUS'")
 run_spec("tests/specs/locale_saved.lua", "SIM.locale = 'enUS'; SafeLootDB = { settings = { language = 'deDE' } }")
 run_spec("tests/specs/corrupt_saved.lua", "SafeLootDB = { players = { ['Bad Record'] = 'x', ['Half Ok'] = { events = { 'junk', { kind = 'tag_ninja', t = SIM.now } } } }, settings = { alarmSound = 'yes' }, runs = { 'broken' } }")

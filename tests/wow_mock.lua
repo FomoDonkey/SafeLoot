@@ -173,21 +173,31 @@ function InCombatLockdown() return SIM.combat end
 function GetNormalizedRealmName() return "" end
 function PlaySound(kit) table.insert(SIM.sounds, kit) end
 function hooksecurefunc(a, b, c)
-  if type(a) == "string" then SIM.hooks[a] = b else SIM.hooks[b] = c end
+  if type(a) == "string" then SIM.hooks[a] = b else SIM.hooks[b] = c; SIM.tableHooks = SIM.tableHooks or {}; SIM.tableHooks[b] = c end
 end
 function IsInGroup() return SIM.inGroup end
 function IsInRaid() return SIM.inRaid end
 function GetNumGroupMembers() return SIM.inGroup and SIM.groupSize or 0 end
 function IsInInstance() return SIM.inInstance, SIM.instanceType end
-function GetInstanceInfo() return SIM.inInstance and "Cumbre de Roca Negra" or "Ventormenta" end
+function GetInstanceInfo() -- continent outside, as the real client; 8th value = instance map ID
+  return SIM.inInstance and "Cumbre de Roca Negra" or "Reinos del Este", SIM.instanceType, 1, "", 5, 0, false,
+    SIM.inInstance and (SIM.instanceMapID or 229) or 0
+end
 function GetRealZoneText() return "Ventormenta" end
-function UnitExists(unit) return SIM.units[unit] ~= nil end
+function UnitExists(unit) return SIM.units[unit] ~= nil or (unit == "target" and SIM.target ~= nil) end
+function UnitIsDead(unit) return unit == "target" and SIM.target ~= nil and SIM.target.dead == true end
+function GetNumLootItems() return #(SIM.lootWindow or {}) end
+function GetLootSlotLink(i) return SIM.lootWindow[i].link end
+function GetLootSlotInfo(i) return 0, "", 1, nil, SIM.lootWindow[i].quality end
 function UnitFullName(unit)
   local u = SIM.units[unit]
   if not u then return nil end
   return u.first, u.second
 end
-function UnitName(unit) local u = SIM.units[unit]; return u and u.first or nil end
+function UnitName(unit)
+  if unit == "target" and SIM.target then return SIM.target.name end
+  local u = SIM.units[unit]; return u and u.first or nil
+end
 function UnitClass(unit) local u = SIM.units[unit]; if not u then return nil end return u.class, u.class end
 function UnitIsGroupLeader(unit) return unit == SIM.leaderUnit end
 function UnitIsPlayer(unit) return SIM.units[unit] ~= nil end
@@ -203,18 +213,31 @@ C_PartyInfo = {
   end,
 }
 C_LootHistory = {
+  GetInfoForEncounter = function(id) return SIM.encounterNames and SIM.encounterNames[id] and { encounterID = id, encounterName = SIM.encounterNames[id] } or nil end,
   GetSortedInfoForDrop = function(encounterID, key) return SIM.lootDrops[tostring(encounterID) .. ":" .. tostring(key)] end,
 }
+-- an item by link or by numeric ID (like the real client)
+local function findItem(key)
+  if SIM.items[key] then return SIM.items[key], key end
+  if type(key) == "number" then
+    for link, i in pairs(SIM.items) do
+      if i.itemID == key and not i.unloaded then return i, link end
+    end
+  end
+  return nil
+end
 C_Item = {
+  GetItemIconByID = function(id) local i = findItem(id); return i and (i.icon or 134400) or nil end,
+  RequestLoadItemDataByID = function(id) SIM.itemRequests = SIM.itemRequests or {}; table.insert(SIM.itemRequests, id) end,
   GetItemInfoInstant = function(link)
     local i = SIM.items[link]
     if not i then return nil end
     return i.itemID, "", "", i.equipLoc, 0, i.classID, i.subClassID
   end,
-  GetItemInfo = function(link)
-    local i = SIM.items[link]
+  GetItemInfo = function(key)
+    local i, link = findItem(key)
     if not i then return nil end
-    return i.name, link, i.quality, 60, 55, "", "", 1, i.equipLoc, 0, 0, i.classID, i.subClassID, i.bindType
+    return i.name, link, i.quality, 60, 55, "", "", 1, i.equipLoc, i.icon or 134400, 0, i.classID, i.subClassID, i.bindType
   end,
   GetItemStats = function(link) local i = SIM.items[link]; return i and i.stats or nil end,
 }
@@ -299,6 +322,20 @@ C_UI = { Reload = function() SIM.reloaded = true end }
 -- Group Finder functions (Blizzard_GroupFinder_VanillaStyle) so the addon can hook them
 function LFGBrowseSearchEntry_Update() end
 function LFGBrowseSearchEntryTooltip_UpdateAndShow() end
-function ChatEdit_InsertLink() end
+ChatFrameUtil = { InsertLink = function() end } -- the function Forever's own code calls on Shift-click
+ChatEdit_InsertLink = ChatFrameUtil.InsertLink  -- deprecated alias, as in the real client
+function IsModifiedClick() return SIM.modifiedClick == true end
+function HandleModifiedItemClick(link) SIM.modifiedLinks = SIM.modifiedLinks or {}; table.insert(SIM.modifiedLinks, link); return true end
+MenuUtil = {
+  CreateContextMenu = function(owner, generator)
+    local root = { title = nil, entries = {} }
+    function root:CreateTitle(text) self.title = text end
+    function root:CreateButton(text, fn) table.insert(self.entries, { text = text, fn = fn }) end
+    function root:SetScrollMode(h) self.scroll = h end
+    generator(owner, root)
+    SIM.lastMenu = root
+  end,
+}
+function SetItemRef(link, text, button) SIM.itemRefs = SIM.itemRefs or {}; table.insert(SIM.itemRefs, link) end
 function CreateSettingsListSectionHeaderInitializer(t) return { header = t } end
 function CreateSettingsButtonInitializer(name, text, fn) return { button = name, fn = fn } end

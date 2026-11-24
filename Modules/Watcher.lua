@@ -18,7 +18,9 @@ function W:Describe(changes, reference, state)
     end
   end
   local clock = date and date("%H:%M") or ""
-  if main.field == "method" and state.method == Rules.MASTER then
+  if main.field == "method" and state.method == Rules.FREEFORALL then
+    return L.ALARM_FFA_TITLE, string.format(L.ALARM_FFA_BODY, clock, methodName(reference.method)), L.VOICE_FFA
+  elseif main.field == "method" and state.method == Rules.MASTER then
     local who = state.masterLooter or state.leader or L.UNKNOWN
     return L.ALARM_ML_TITLE, string.format(L.ALARM_ML_BODY, clock, who, methodName(reference.method)), L.VOICE_ML
   elseif main.field == "masterLooter" then
@@ -42,8 +44,13 @@ function W:Check(reason)
   local previous = self.lastState
   self.lastState = state
   local contract = SL.Contract:Get()
-  if not contract then
-    SL.Contract:Reset(Rules.FromState(state, API.Now()))
+  if not contract or (not previous and reason == "join") then
+    if contract then
+      -- rules prepared before the group formed (reserves, destination) are kept, with the game's real method
+      SL.Contract:SyncGame()
+    else
+      SL.Contract:Reset(Rules.FromState(state, API.Now()))
+    end
     -- decision-time information: the group you just joined already uses master loot
     if state.method == Rules.MASTER and not API.IsLeader("player") then
       SL.Alert:Toast({
@@ -63,7 +70,7 @@ function W:Check(reason)
   -- you changed it yourself (you lead): no alarm; an automatic contract follows you
   if API.IsLeader("player") then
     if contract.source == "auto" then
-      SL.Contract:Reset(Rules.FromState(state, API.Now()))
+      SL.Contract:SyncGame() -- in place: the destination stays
     end
     return
   end
@@ -93,12 +100,23 @@ function W:Check(reason)
       end },
       { label = L.ACTION_SAVE, fn = function()
         if leader and SL.settings.memory then
-          SL.Memory.Add(SL.db.players, leader, { kind = "rules_changed", t = API.Now(), place = API.PlaceName() })
-          SL:Fire("MEMORY_CHANGED", leader)
+          local record = SL.Memory.Get(SL.db.players, leader)
+          local recent = false
+          for _, event in ipairs(record and record.events or {}) do
+            if event.kind == "rules_changed" and API.Now() - (event.t or 0) < 600 then
+              recent = true -- one note per incident, however many times the button is clicked
+            end
+          end
+          if not recent then
+            SL.Memory.Add(SL.db.players, leader, { kind = "rules_changed", t = API.Now(), place = API.PlaceName() })
+            SL:Fire("MEMORY_CHANGED", leader)
+          end
         end
         SL:Print(L.SAVED_EVIDENCE)
       end },
-      { label = L.ACTION_OK, fn = function() end },
+      { label = L.ACTION_ACCEPT, fn = function()
+        SL.Contract:AcceptGameState()
+      end },
     },
   })
 end
@@ -106,9 +124,13 @@ end
 function W:OnGroupChanged()
   local inGroup = API.InGroup()
   if inGroup and not self.inGroup then
-    -- just joined: take the snapshot a moment later (the loot rules may not be ready yet)
+    -- just joined: take the snapshot a moment later (the loot rules may not be ready yet). An unpublished draft made
+    -- while alone (destination, reserves chosen in advance) is kept; anything else starts again.
     self.lastState = nil
-    SL.Contract:Reset(nil)
+    local c = SL.Contract:Get()
+    if not (c and c.source == "proposed" and not c.publishedAt) then
+      SL.Contract:Reset(nil)
+    end
     if C_Timer and C_Timer.After then
       C_Timer.After(1.5, function()
         SL.SafeCall("Watcher.join", W.Check, W, "join")

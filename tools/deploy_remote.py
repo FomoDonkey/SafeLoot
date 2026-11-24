@@ -1,6 +1,7 @@
 """Deploys SafeLoot to another Windows PC over SSH and verifies every file.
 
 Usage:  python tools/deploy_remote.py --yes      (without --yes it only shows what it would do)
+        add --live to update while WoW is open: changed .lua files load with /reload (new files need a restart)
 The target comes from tools/remote.local.json (not in git: it holds your own PC's address), e.g.
     {"remote": "user@192.168.1.50", "addons": "D:/Games/World of Warcraft/_forever_/Interface/AddOns"}
 or from the environment variables SAFELOOT_REMOTE and SAFELOOT_REMOTE_ADDONS.
@@ -29,14 +30,17 @@ ADDONS = os.environ.get("SAFELOOT_REMOTE_ADDONS", _CONFIG.get("addons"))
 PS1 = r"""
 $ErrorActionPreference = 'Stop'
 $addons = '__ADDONS__'
+$live = [bool]__LIVE__
 $zip = Join-Path $HOME 'SafeLoot-deploy.zip'
 if (-not (Test-Path $addons)) { throw "AddOns folder not found: $addons" }
-if (Get-Process Wow -ErrorAction SilentlyContinue) { Write-Output 'WOW_RUNNING'; Remove-Item -Force $zip; exit 3 }
+if ((Get-Process Wow -ErrorAction SilentlyContinue) -and -not $live) { Write-Output 'WOW_RUNNING'; Remove-Item -Force $zip; exit 3 }
 $dest = Join-Path $addons 'SafeLoot'
+$pack = Join-Path $addons 'SafeLoot_LootData'
 if (Test-Path $dest) { Remove-Item -Recurse -Force $dest }
+if (Test-Path $pack) { Remove-Item -Recurse -Force $pack }
 Expand-Archive -Path $zip -DestinationPath $addons -Force
-Get-ChildItem -Path $dest -Recurse -File | ForEach-Object {
-  $rel = $_.FullName.Substring($dest.Length + 1).Replace([string][char]92, '/')
+Get-ChildItem -Path $dest, $pack -Recurse -File | ForEach-Object {
+  $rel = $_.FullName.Substring($addons.TrimEnd([char]92).Length + 1).Replace([string][char]92, '/')
   Write-Output ((Get-FileHash -Algorithm SHA256 -Path $_.FullName).Hash.ToLower() + ' ' + $rel)
 }
 Remove-Item -Force $zip
@@ -69,10 +73,15 @@ def main():
             data = open(os.path.join(ROOT, rel), "rb").read()
             arc = "SafeLoot/" + rel.replace(os.sep, "/")
             z.writestr(arc, data)
-            local[rel.replace(os.sep, "/")] = hashlib.sha256(data).hexdigest()
+            local[arc] = hashlib.sha256(data).hexdigest()
+        for rel in install.pack_files():
+            data = open(os.path.join(ROOT, rel), "rb").read()
+            arc = rel.replace(os.sep, "/")
+            z.writestr(arc, data)
+            local[arc] = hashlib.sha256(data).hexdigest()
     ps1_path = os.path.join(tmp, "safeloot_deploy.ps1")
     with open(ps1_path, "w", encoding="utf-8") as f:
-        f.write(PS1.replace("__ADDONS__", ADDONS.replace("/", "\\")))
+        f.write(PS1.replace("__ADDONS__", ADDONS.replace("/", "\\")).replace("__LIVE__", "1" if "--live" in sys.argv else "0"))
     subprocess.run(["scp", "-q", "-o", "BatchMode=yes", zip_path, ps1_path, REMOTE + ":"], check=True)
     result = subprocess.run(
         ["ssh", "-o", "BatchMode=yes", REMOTE,

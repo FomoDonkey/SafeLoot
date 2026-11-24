@@ -74,6 +74,8 @@ local FUNCTIONS = {
   "C_Item.GetItemStats", "C_XMLUtil.GetTemplateInfo", "issecretvalue", "UnitFullName", "GetLootThreshold",
   "IsInInstance", "GetInstanceInfo", "StaticPopup_FindVisible", "NineSliceUtil.ApplyLayoutByName",
   "ScrollUtil.InitScrollBoxListWithScrollBar", "CreateScrollBoxListLinearView", "SendChatMessage",
+  "ChatFrameUtil.InsertLink", "MenuUtil.CreateContextMenu", "C_Item.RequestLoadItemDataByID", "C_Item.GetItemIconByID",
+  "C_LootHistory.GetInfoForEncounter", "HandleModifiedItemClick", "GetNumLootItems", "GetLootSlotLink", "GetLootSlotInfo",
 }
 
 local function canRegister(event)
@@ -88,7 +90,7 @@ end
 local EVENTS = {
   "PARTY_LOOT_METHOD_CHANGED", "LOOT_HISTORY_UPDATE_DROP", "LOOT_HISTORY_UPDATE_ENCOUNTER", "PARTY_INVITE_REQUEST",
   "GROUP_ROSTER_UPDATE", "PARTY_LEADER_CHANGED", "CHAT_MSG_PARTY", "CHAT_MSG_PARTY_LEADER", "CHAT_MSG_LOOT",
-  "CHAT_MSG_ADDON",
+  "CHAT_MSG_ADDON", "GET_ITEM_INFO_RECEIVED", "ITEM_DATA_LOAD_RESULT", "LOOT_OPENED", "ZONE_CHANGED_NEW_AREA",
 }
 
 local PREFIX = "SafeLoot"
@@ -112,6 +114,9 @@ function D:Run()
   report.lootThreshold = API.LootThreshold()
   report.me = SL.Names.Me()
   report.place = API.PlaceName()
+  report.instanceMap = API.InstanceMapID()
+  report.instanceKnown = SL.Catalog and SL.Catalog:Here() ~= nil or false
+  report.lootBook = SL.Catalog and SL.Catalog:Stats() or nil
   -- addon message echo: whisper ourselves (works without a group); the reply arrives in CHAT_MSG_ADDON
   local ok, result = API.SendAddon(PREFIX, "1|PING|" .. report.t, "WHISPER", report.me)
   report.addonSend = { ok = ok, result = tostring(result) }
@@ -182,12 +187,20 @@ function D:ReportLines(report)
   local echo = report.addonEcho and (report.addonEcho.WHISPER or next(report.addonEcho) and select(2, next(report.addonEcho)))
   add(echo ~= nil, echo and string.format(L.DIAG_ADDON_ECHO, echo.ms) or L.DIAG_ADDON_WAIT)
   add((report.ttsVoices or 0) > 0, string.format(L.DIAG_TTS, report.ttsVoices or 0))
+  if report.instanceMap then
+    add(report.instanceKnown, string.format(L.DIAG_INSTANCE, report.instanceMap))
+  end
+  if report.lootBook then
+    lines[#lines + 1] = T.Paint(string.format(L.DIAG_LOOTBOOK, report.lootBook.items or 0, report.lootBook.maps or 0)
+      .. " · " .. string.format(L.DIAG_PACK, report.lootBook.pack or 0), T.color.gray)
+  end
   -- what has been observed in real play so far
   local observed = SL.db.diagnostics.observed
   lines[#lines + 1] = " "
   lines[#lines + 1] = T.Paint(L.DIAG_OBSERVED, T.color.gold)
   local keys = { "loot_method_event", "loot_method_read", "loot_history_drop", "finder_row_hook", "finder_tooltip_hook",
-    "unit_tooltip", "invite_event", "chat_group_secret", "chat_group_plain", "chat_loot_need", "center_warning" }
+    "unit_tooltip", "invite_event", "chat_group_secret", "chat_group_plain", "chat_loot_need", "center_warning", "instance_map",
+    "loot_book_drop", "loot_book_corpse", "loot_book_sync", "insert_link" }
   for _, key in ipairs(keys) do
     local entry = observed[key]
     local count = entry and entry.count or 0

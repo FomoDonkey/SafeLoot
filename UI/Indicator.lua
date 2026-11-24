@@ -16,7 +16,7 @@ function I:Build()
   local bg = bar:CreateTexture(nil, "BACKGROUND")
   bg:SetPoint("TOPLEFT", 3, -3)
   bg:SetPoint("BOTTOMRIGHT", -3, 3)
-  bg:SetColorTexture(0, 0, 0, 0.6)
+  bg:SetColorTexture(0, 0, 0, 0.82) -- seen in the client: at 0.6 the text was lost over bright scenery
   local border = UI.Create("Frame", bar, "NineSlicePanelTemplate")
   border:SetAllPoints()
   if NineSliceUtil and NineSliceUtil.ApplyLayoutByName then
@@ -24,7 +24,7 @@ function I:Build()
   end
   bar.Icon = UI.Icon(bar, 16, T.tex.wait, "OVERLAY")
   bar.Icon:SetPoint("LEFT", 8, 0)
-  bar.Text = UI.Text(bar, "small", "", "LEFT")
+  bar.Text = UI.Text(bar, "body", "", "LEFT")
   bar.Text:SetPoint("LEFT", bar.Icon, "RIGHT", 6, 0)
   bar.Text:SetWordWrap(false)
   UI.Movable(bar, "indicator", { "TOPRIGHT", UIParent, "TOPRIGHT", -250, -14 })
@@ -97,7 +97,15 @@ function I:Update()
     return
   end
   local c = SL.Contract:Get()
-  local text = SL.Contract:Summary(c)
+  -- the bar works the state out itself (outside combat), so "Use the game's rules" or "Accept the change" turn it
+  -- back to normal at once; in combat it keeps the last known state
+  if c and not SL:InCombat() then
+    local state = API.LootState()
+    if state then
+      self.deviation = SL.Rules.MaxSeverity(SL.Rules.Diff(c, state))
+    end
+  end
+  local text = T.Paint(SL.Contract:ShortSummary(c), T.color.white)
   if self.deviation >= 2 then
     self.bar.Icon:SetTexture(T.tex.bad)
     text = T.Paint(L.IND_CHANGED, T.color.red) .. "  " .. text
@@ -106,7 +114,7 @@ function I:Update()
   end
   self.bar.Text:SetText(text)
   local width = (self.bar.Text:GetStringWidth() or 160) + 44
-  self.bar:SetWidth(math.min(380, math.max(150, width)))
+  self.bar:SetWidth(math.min(340, math.max(150, width)))
   self.bar:Show()
 end
 

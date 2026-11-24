@@ -63,6 +63,46 @@ function M.Add(players, name, event)
   return record
 end
 
+-- Manual tags are the player's opinion: one per player. A new tag replaces the previous one and clicking the
+-- active tag again removes it (seen in the real client: repeated clicks piled up and produced "Mixed").
+M.MANUAL = { tag_trusted = true, tag_goodleader = true, tag_ninja = true, tag_extortion = true, tag_quitter = true,
+  tag_rude = true }
+
+function M.ActiveTag(record)
+  if type(record) ~= "table" then
+    return nil
+  end
+  for i = #(record.events or {}), 1, -1 do
+    local kind = record.events[i].kind
+    if M.MANUAL[kind] then
+      return kind
+    end
+  end
+  return nil
+end
+
+-- Returns the active tag after the change (nil when it was removed).
+function M.SetTag(players, name, kind, t, place)
+  local k = key(name)
+  if not k or not M.MANUAL[kind] then
+    return nil
+  end
+  local record = players[k]
+  local wasActive = record and M.ActiveTag(record) == kind
+  if record then
+    for i = #record.events, 1, -1 do
+      if M.MANUAL[record.events[i].kind] then
+        table.remove(record.events, i)
+      end
+    end
+  end
+  if wasActive then
+    return nil
+  end
+  M.Add(players, k, { kind = kind, t = t, place = place })
+  return kind
+end
+
 function M.Forget(players, name)
   local k = key(name)
   if k then
@@ -74,7 +114,8 @@ local function alive(event, now, days)
   return not days or not event.t or (now - event.t) <= days * M.DAY
 end
 
--- Returns { tone = "bad" | "warn" | "good" | "mixed" | nil, bad, warn, good, latest, count } over live events.
+-- Returns { tone = "bad" | "warn" | "good" | "mixed" | nil, bad, warn, good, latest, latestAny, count } over live
+-- events. latest = newest event with a tone; latestAny = newest event of any kind (notes included).
 function M.Summary(record, now, days)
   local result = { bad = 0, warn = 0, good = 0, count = 0 }
   if not record then
@@ -82,6 +123,9 @@ function M.Summary(record, now, days)
   end
   for _, event in ipairs(record.events or {}) do
     if alive(event, now, days) then
+      if not result.latestAny or (event.t or 0) >= (result.latestAny.t or 0) then
+        result.latestAny = event -- includes notes, which have no tone
+      end
       local info = M.KINDS[event.kind]
       local tone = info and info.tone
       if tone == "bad" or tone == "warn" or tone == "good" then
@@ -141,9 +185,11 @@ end
 -- Sorted list for the Players tab: { name, record, summary }, newest first, optional text filter.
 function M.List(players, now, days, filter)
   local list = {}
-  local f = filter and filter ~= "" and filter:lower() or nil
+  -- accent- and case-insensitive ("pena" finds "Peña"), without string.lower (locale-dependent on UTF-8)
+  local norm = (SL.Rules and SL.Rules.Normalize) or function(s) return s end
+  local f = filter and filter ~= "" and norm(filter) or nil
   for name, record in pairs(players or {}) do
-    if not f or name:lower():find(f, 1, true) then
+    if not f or norm(name):find(f, 1, true) then
       list[#list + 1] = { name = name, record = record, summary = M.Summary(record, now, days) }
     end
   end

@@ -145,3 +145,86 @@ end)
 test("settings include the indicator and the exceptions button", function()
   ok(SIM.settingsRegistered.showIndicator, "showIndicator registered")
 end)
+
+-- Fixes after the first look in the real client (2026-11-24) -----------------------------------------------------
+test("the first tab is anchored (otherwise the game draws no tab at all)", function()
+  SL.MainFrame:Open("contract")
+  ok(#_G.SafeLootMainFrameTab1._points > 0, "tab 1 has an anchor")
+  local p = _G.SafeLootMainFrameTab1._points[1]
+  eq(p[1], "TOPLEFT")
+  eq(p[3], "BOTTOMLEFT")
+end)
+
+test("text inputs are our own boxes with a hint, not SharedEditBoxTemplate", function()
+  local page = SL.MainFrame.pages.contract
+  ok(page.ItemBox.holder and page.ItemBox.Hint, "item box with hint")
+  eq(page.ItemBox.Hint:GetText(), L.RESERVE_ITEM)
+  ok(page.ItemBox.Hint:IsShown(), "hint visible while empty")
+  page.ItemBox:SetText("Mano")
+  page.ItemBox.Refresh()
+  ok(not page.ItemBox.Hint:IsShown(), "hint hidden with text")
+  page.ItemBox:SetText("")
+  page.ItemBox.Refresh()
+  for _, f in ipairs(SIM.frames) do
+    ok(f._template ~= "SharedEditBoxTemplate", "no SharedEditBoxTemplate left")
+  end
+end)
+
+-- 0.3.0: from the first real test (desktop, 2026-11-24) ----------------------------------------------------------
+test("free for all is a RED alarm with its own text (the leader switched to 'Libre' in the real test)", function()
+  eq(SL.Rules.MaxSeverity(SL.Rules.Diff({ method = 3 }, { method = 0 })), SL.Rules.SEVERITY_ALERT)
+  local before = #SIM.warnings
+  SIM.lootMethod = 0
+  SIM.Fire("PARTY_LOOT_METHOD_CHANGED")
+  eq(#SIM.warnings, before + 1)
+  eq(last(SIM.warnings), L.ALARM_FFA_TITLE)
+  SIM.lootMethod = 3
+  SIM.Fire("PARTY_LOOT_METHOD_CHANGED")
+end)
+
+test("'yap' counts as agreeing (what the friend answered in the real test)", function()
+  for _, yes in ipairs({ "yap", "ya", "okis", "va", "kk", "yeah" }) do
+    ok(SL.Rules.IsAgreement(yes), yes)
+  end
+end)
+
+test("the rules bar uses the short form and says how many agreed", function()
+  SIM.now = SIM.now + 10
+  SL.Contract:Adopt({ needRule = "msos" }, "copied")
+  SL.Contract:Publish()
+  SIM.Fire("CHAT_MSG_PARTY", "yap", "Zarn-Brasa")
+  local text = _G.SafeLootIndicator.Text:GetText()
+  ok(contains(text, "MS>OS"), "short label: " .. text)
+  ok(not contains(text, L.NEED_msos), "no long label")
+  ok(contains(text, string.format(L.AGREED_COUNT, 1, 3)), "1 of 3 agreed: " .. text)
+end)
+
+test("the Rules tab shows what the game says right now", function()
+  SL.MainFrame:Open("contract")
+  local line = SL.MainFrame.pages.contract.Game:GetText()
+  ok(contains(line, L.GAME_NOW), "label")
+  ok(contains(line, L.METHOD_3), "method")
+  ok(contains(line, "Krag Hierro"), "leader")
+end)
+
+test("a group in the open world also goes to the journal (real alarm was in the world)", function()
+  local run = SL.Run:Current()
+  ok(run and run.instance == false, "world session running")
+  SIM.lootMethod, SIM.masterPartyID = 2, 1
+  SIM.Fire("PARTY_LOOT_METHOD_CHANGED")
+  SIM.lootMethod = 3
+  SIM.Fire("PARTY_LOOT_METHOD_CHANGED")
+  local before = #SafeLootDB.runs
+  SIM.inGroup = false
+  SIM.Fire("GROUP_LEFT")
+  eq(#SafeLootDB.runs, before + 1, "saved when leaving the group")
+  eq(SafeLootDB.runs[#SafeLootDB.runs].instance, false)
+end)
+
+test("'BoE on Greed' has its own row below the three need rules", function()
+  local page = SL.MainFrame.pages.contract
+  local boe = page.rules[4]
+  local p = boe._points[#boe._points]
+  eq(p[2], 14, "same column as the others")
+  ok(p[3] < -150, "below the third rule")
+end)

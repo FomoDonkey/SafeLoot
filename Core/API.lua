@@ -52,6 +52,18 @@ function API.InInstance()
 end
 
 function API.PlaceName()
+  -- outside instances GetInstanceInfo returns the continent ("Reinos del Este", seen in the real saved data):
+  -- use the zone there
+  if not API.InInstance() then
+    for _, getter in ipairs({ GetRealZoneText, GetZoneText }) do
+      if type(getter) == "function" then
+        local ok, zone = pcall(getter)
+        if ok and type(zone) == "string" and zone ~= "" and not secret(zone) then
+          return zone
+        end
+      end
+    end
+  end
   if GetInstanceInfo then
     local ok, name = pcall(GetInstanceInfo)
     if ok and type(name) == "string" and not secret(name) and name ~= "" then
@@ -308,7 +320,8 @@ function API.SendGroupChat(text)
   if type(text) ~= "string" or text == "" or not API.InGroup() then
     return false
   end
-  local clean = SL.Rules.Clean(text, 255)
+  -- keeps real item links (everyone can hover the reserved item); any other "|" code is removed
+  local clean = SL.Rules.CleanChat(text, 255)
   if not clean then
     return false
   end
@@ -421,3 +434,126 @@ function API.GameBuild()
   local version, build, _, interface = GetBuildInfo()
   return tostring(version) .. "." .. tostring(build), interface
 end
+
+-- Instances, items and loot (0.4.0) ----------------------------------------------------------------------------
+-- The game's map ID of the instance you are in (8th value of GetInstanceInfo); nil outside instances.
+function API.InstanceMapID()
+  if not API.InInstance() or not GetInstanceInfo then
+    return nil
+  end
+  local ok, _, _, _, _, _, _, _, mapID = pcall(GetInstanceInfo)
+  if ok and type(mapID) == "number" and not secret(mapID) then
+    return mapID
+  end
+  return nil
+end
+
+function API.ItemIDFromLink(link)
+  if type(link) ~= "string" or secret(link) then
+    return nil
+  end
+  return tonumber(link:match("|Hitem:(%d+)") or link:match("^item:(%d+)"))
+end
+
+-- { id, name, link, quality, icon }. name is nil while the game is still loading the item (see RequestItem).
+function API.ItemByID(itemID)
+  if type(itemID) ~= "number" then
+    return nil
+  end
+  local info = { id = itemID }
+  if C_Item and C_Item.GetItemInfo then
+    local ok, name, link, quality, _, _, _, _, _, _, icon = pcall(C_Item.GetItemInfo, itemID)
+    if ok and type(name) == "string" and not secret(name) then
+      info.name, info.link, info.quality, info.icon = name, link, quality, icon
+    end
+  end
+  if not info.icon and C_Item and C_Item.GetItemIconByID then
+    local ok, icon = pcall(C_Item.GetItemIconByID, itemID)
+    if ok and not secret(icon) then
+      info.icon = icon
+    end
+  end
+  return info
+end
+
+-- Ask the game to load an item; ITEM_DATA_LOAD_RESULT fires when it is ready.
+function API.RequestItem(itemID)
+  if C_Item and C_Item.RequestLoadItemDataByID then
+    pcall(C_Item.RequestLoadItemDataByID, itemID)
+  end
+end
+
+function API.EncounterName(encounterID)
+  if type(encounterID) ~= "number" or secret(encounterID) or not (C_LootHistory and C_LootHistory.GetInfoForEncounter) then
+    return nil
+  end
+  local ok, info = pcall(C_LootHistory.GetInfoForEncounter, encounterID)
+  local name = ok and type(info) == "table" and info.encounterName
+  if type(name) == "string" and not secret(name) then
+    return name
+  end
+  return nil
+end
+
+-- Name of the dead creature you target (the corpse you are looting); nil for players and secret values.
+function API.TargetCorpseName()
+  if not (UnitExists and UnitIsDead and UnitName) then
+    return nil
+  end
+  local ok, exists = pcall(UnitExists, "target")
+  if not ok or secret(exists) or not exists then
+    return nil
+  end
+  local okDead, dead = pcall(UnitIsDead, "target")
+  if not okDead or secret(dead) or not dead or API.UnitIsPlayer("target") then
+    return nil
+  end
+  local okName, name = pcall(UnitName, "target")
+  if okName and type(name) == "string" and not secret(name) then
+    return name
+  end
+  return nil
+end
+
+-- Items in the open loot window: { { link, quality } }.
+function API.LootSlots()
+  local slots = {}
+  if not (GetNumLootItems and GetLootSlotLink) then
+    return slots
+  end
+  local ok, n = pcall(GetNumLootItems)
+  if not ok or type(n) ~= "number" or secret(n) then
+    return slots
+  end
+  for i = 1, math.min(n, 40) do
+    local okLink, link = pcall(GetLootSlotLink, i)
+    if okLink and type(link) == "string" and not secret(link) then
+      local quality
+      if GetLootSlotInfo then
+        local okInfo, _, _, _, _, q = pcall(GetLootSlotInfo, i)
+        if okInfo and type(q) == "number" and not secret(q) then
+          quality = q
+        end
+      end
+      slots[#slots + 1] = { link = link, quality = quality }
+    end
+  end
+  return slots
+end
+
+-- Shift-click on an item. Forever's own code calls ChatFrameUtil.InsertLink; ChatEdit_InsertLink is only a
+-- deprecated alias that Blizzard no longer calls (verified in the Forever UI source, build 71037). Both are hooked
+-- (hooksecurefunc: nothing is replaced), each path fires once.
+function API.HookInsertLink(fn)
+  local hooked = false
+  if ChatFrameUtil and type(ChatFrameUtil.InsertLink) == "function" then
+    hooksecurefunc(ChatFrameUtil, "InsertLink", fn)
+    hooked = true
+  end
+  if type(ChatEdit_InsertLink) == "function" then
+    hooksecurefunc("ChatEdit_InsertLink", fn)
+    hooked = true
+  end
+  return hooked
+end
+

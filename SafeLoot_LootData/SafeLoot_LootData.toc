@@ -1,0 +1,15 @@
+## Interface: 16001
+## Title: |cffd4a017SafeLoot|r: loot data
+## Notes: Boss loot tables for SafeLoot, derived from AtlasLoot Classic Forever (GPL v2). Optional.
+## Notes-esES: Tablas de botín de los jefes para SafeLoot, derivadas de AtlasLoot Classic Forever (GPL v2). Opcional.
+## Notes-deDE: Beutetabellen der Bosse für SafeLoot, abgeleitet von AtlasLoot Classic Forever (GPL v2). Optional.
+## Notes-frFR: Tables de butin des boss pour SafeLoot, dérivées d'AtlasLoot Classic Forever (GPL v2). Facultatif.
+## Notes-ptBR: Tabelas de saque dos chefes para o SafeLoot, derivadas do AtlasLoot Classic Forever (GPL v2). Opcional.
+## Author: FomoDonkey; loot tables by sliccer, Hoizame and the AtlasLoot contributors
+## Version: 0.4.0
+## X-License: GPL-2.0
+## Dependencies: SafeLoot
+## IconTexture: Interface\AddOns\SafeLoot\Media\Icon
+## Category: Group
+
+Data.lua

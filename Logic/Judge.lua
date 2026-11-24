@@ -52,7 +52,7 @@ function J.Evaluate(roll, item, contract, opts)
     if contract.boe == "greed" and item.bindType == 2 then -- Enum bind type 2 = OnEquip (BoE)
       return { level = J.DOUBTFUL, reason = "contract_boe" }
     end
-    local reserves = Rules.ReservesFor(contract, item.name)
+    local reserves = Rules.ReservesFor(contract, item.name, item.itemID)
     if #reserves > 0 then
       local mine, hard, soft = false, false, false
       for _, reserve in ipairs(reserves) do

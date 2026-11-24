@@ -16,7 +16,7 @@ local OPTIONS = {
   { section = "SECTION_ALARM" },
   { key = "alarmCenter" }, { key = "alarmSound" }, { key = "alarmVoice" }, { key = "alarmPanel" }, { key = "panelInCombat" },
   { section = "SECTION_DETECT" },
-  { key = "detector" }, { key = "suggestRules" }, { key = "summaryAlways" },
+  { key = "detector" }, { key = "suggestRules" }, { key = "summaryAlways" }, { key = "shareLoot" },
   { section = "SECTION_MEMORY" },
   { key = "memory" }, { key = "showTooltip" }, { key = "showFinder" }, { key = "showInvite" }, { key = "showGroupJoin" },
   { key = "memoryDays", min = 30, max = 365, step = 15 },
