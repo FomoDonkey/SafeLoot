@@ -238,7 +238,13 @@ function UI.FadeIn(frame)
 end
 
 -- Draggable frame that remembers where the player left it (per character).
+-- Drag it anywhere (title bar or any empty part); the place is remembered for each character.
+-- (EnableMouse is needed: without it the game never reports the drag, and clicks go through the window to the world.
+-- The main window could not be moved until 0.5.0.)
+UI.movables = {}
 function UI.Movable(frame, key, defaultPoint)
+  UI.movables[#UI.movables + 1] = frame
+  frame:EnableMouse(true)
   frame:SetMovable(true)
   frame:SetClampedToScreen(true)
   frame:RegisterForDrag("LeftButton")
@@ -247,6 +253,9 @@ function UI.Movable(frame, key, defaultPoint)
   end)
   frame:SetScript("OnDragStop", function(self)
     self:StopMovingOrSizing()
+    if self.SetUserPlaced then
+      self:SetUserPlaced(false) -- we remember the place; the game's own layout cache must not fight with it
+    end
     local point, _, relPoint, x, y = self:GetPoint(1)
     if SL.char then
       SL.char.positions[key] = { point, relPoint, x, y }
@@ -255,7 +264,9 @@ function UI.Movable(frame, key, defaultPoint)
   frame.RestorePosition = function(self)
     self:ClearAllPoints()
     local saved = SL.char and SL.char.positions[key]
-    if saved then
+    if not saved and type(defaultPoint) == "function" then
+      defaultPoint(self)
+    elseif saved then
       self:SetPoint(saved[1], UIParent, saved[2], saved[3], saved[4])
     else
       self:SetPoint(unpack(defaultPoint))
@@ -265,6 +276,16 @@ function UI.Movable(frame, key, defaultPoint)
 end
 
 -- Icon + coloured word for a memory tone (never colour alone).
+-- Every window back to its first place (/safeloot reset): for one lost off the screen or behind something.
+function UI.ResetPositions()
+  if SL.char then
+    SL.char.positions = {}
+  end
+  for _, frame in ipairs(UI.movables) do
+    frame:RestorePosition()
+  end
+end
+
 function UI.ToneLine(tone)
   local info = T.tone[tone] or T.tone.neutral
   local word = SL.L["TONE_" .. string.upper(tone or "neutral")] or ""

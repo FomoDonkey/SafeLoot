@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.0 — 2026-11-24 — the address book
+Not yet seen in the real client.
+- Players tab rebuilt as three panes: categories with icon and number (in my group, ninja, sells loot, quits, alerts, trusted, with notes, met before), the list (two lines, class icon, coloured bar, order by recent / A-Z / most runs) and the card (opinion, notes that can be removed one by one). Searching looks in every category.
+- Recognise them at a glance: icon + word in big in the tooltip, a badge under the target's portrait, the Group Finder, invitations, people joining and (new) whispers.
+- Mark anyone with a right click: portrait, party, chat, friends, guild, or a row of the list.
+- Marks and notes you make never expire (they used to after 90 days); automatic alerts still do. "Forget" asks twice.
+- Every window can be dragged and remembers its place (the main window could not be moved: it never received the mouse). `/safeloot reset` puts them back.
+
 ## 0.4.1 — 2026-11-24 — minimap button
 - A round button on the edge of the minimap: click opens or closes SafeLoot, right click gives a quick menu (tabs, loot by boss, settings, hide), drag moves it. It shows a warning mark while your group's loot rules are not the agreed ones. Works with round and square minimaps. Hide it from the settings, its menu or `/safeloot minimap`.
 

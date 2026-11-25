@@ -74,7 +74,7 @@ local FUNCTIONS = {
   "C_Item.GetItemStats", "C_XMLUtil.GetTemplateInfo", "issecretvalue", "UnitFullName", "GetLootThreshold",
   "IsInInstance", "GetInstanceInfo", "StaticPopup_FindVisible", "NineSliceUtil.ApplyLayoutByName",
   "ScrollUtil.InitScrollBoxListWithScrollBar", "CreateScrollBoxListLinearView", "SendChatMessage",
-  "ChatFrameUtil.InsertLink", "MenuUtil.CreateContextMenu", "C_Item.RequestLoadItemDataByID", "C_Item.GetItemIconByID",
+  "ChatFrameUtil.InsertLink", "MenuUtil.CreateContextMenu", "Menu.ModifyMenu", "C_Item.RequestLoadItemDataByID", "C_Item.GetItemIconByID",
   "C_LootHistory.GetInfoForEncounter", "HandleModifiedItemClick", "GetNumLootItems", "GetLootSlotLink", "GetLootSlotInfo",
 }
 
@@ -90,7 +90,7 @@ end
 local EVENTS = {
   "PARTY_LOOT_METHOD_CHANGED", "LOOT_HISTORY_UPDATE_DROP", "LOOT_HISTORY_UPDATE_ENCOUNTER", "PARTY_INVITE_REQUEST",
   "GROUP_ROSTER_UPDATE", "PARTY_LEADER_CHANGED", "CHAT_MSG_PARTY", "CHAT_MSG_PARTY_LEADER", "CHAT_MSG_LOOT",
-  "CHAT_MSG_ADDON", "GET_ITEM_INFO_RECEIVED", "ITEM_DATA_LOAD_RESULT", "LOOT_OPENED", "ZONE_CHANGED_NEW_AREA",
+  "CHAT_MSG_ADDON", "GET_ITEM_INFO_RECEIVED", "ITEM_DATA_LOAD_RESULT", "LOOT_OPENED", "ZONE_CHANGED_NEW_AREA", "PLAYER_TARGET_CHANGED", "CHAT_MSG_WHISPER",
 }
 
 local PREFIX = "SafeLoot"
@@ -200,7 +200,7 @@ function D:ReportLines(report)
   lines[#lines + 1] = T.Paint(L.DIAG_OBSERVED, T.color.gold)
   local keys = { "loot_method_event", "loot_method_read", "loot_history_drop", "finder_row_hook", "finder_tooltip_hook",
     "unit_tooltip", "invite_event", "chat_group_secret", "chat_group_plain", "chat_loot_need", "center_warning", "instance_map",
-    "loot_book_drop", "loot_book_corpse", "loot_book_sync", "insert_link" }
+    "loot_book_drop", "loot_book_corpse", "loot_book_sync", "insert_link", "unit_menu" }
   for _, key in ipairs(keys) do
     local entry = observed[key]
     local count = entry and entry.count or 0

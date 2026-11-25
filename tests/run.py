@@ -160,6 +160,9 @@ def locales():
                                            "grouped", "tag_ninja", "tag_extortion", "tag_quitter", "tag_rude",
                                            "tag_trusted", "tag_goodleader", "note"]]
         + ["TONE_" + t for t in ["BAD", "WARN", "MIXED", "GOOD", "NEUTRAL"]]
+        + [p + c for p in ("CAT_", "CAT_TIP_") for c in ("ALL", "GROUP", "NINJA", "EXTORTION", "QUITTER", "WARNED", "TRUSTED", "NOTED", "SEEN")]
+        + ["LABEL_WARNED", "LABEL_NOTED", "LABEL_SEEN"]
+        + ["SORT_RECENT", "SORT_NAME", "SORT_TIMES"]
         + ["TAB_CONTRACT", "TAB_JOURNAL", "TAB_PLAYERS"]
         + ["LANG_" + c for c in ["auto", "enUS", "esES", "deDE", "frFR", "ptBR"]]
         + ["SOURCE_AUTO", "SOURCE_COPIED", "SOURCE_PROPOSED", "SOURCE_RECEIVED"]
@@ -184,6 +187,7 @@ run_spec("tests/specs/point2.lua")
 run_spec("tests/specs/audit3.lua")
 run_spec("tests/specs/lootbook.lua")
 run_spec("tests/specs/lootpack.lua", pack=True)
+run_spec("tests/specs/players.lua")
 run_spec("tests/specs/minimap.lua")
 run_spec("tests/specs/minimap_hidden.lua", "SafeLootDB = { settings = { showMinimap = false, minimapAngle = 'x' } }")
 run_spec("tests/specs/locale_switch.lua", "SIM.locale = 'enUS'")

@@ -30,6 +30,18 @@ local function eventText(event)
 end
 MH.EventText = eventText
 
+-- Without date or place: for the second line of a list row.
+function MH.ShortEvent(event)
+  if not event then
+    return ""
+  end
+  if event.kind == "note" then
+    return "\"" .. (event.note or "") .. "\""
+  end
+  local what = event.link or event.item
+  return (L["EVENT_" .. string.upper(event.kind)] or event.kind) .. (what and (" · " .. what) or "")
+end
+
 -- Lines to add to any tooltip for a remembered player.
 function MH:TooltipLines(name)
   local summary, record = summaryFor(name)
@@ -37,15 +49,20 @@ function MH:TooltipLines(name)
     return nil
   end
   local lines = {}
+  local category = Memory.Category(record, API.Now(), SL.settings.memoryDays)
   if summary.tone then
-    lines[#lines + 1] = UI.ToneLine(summary.tone) .. "  " .. T.Paint(L.ADDON_NAME, T.color.gray)
+    -- the word first and big: you must see at a glance what this player is to you
+    lines[#lines + 1] = SL.Players:Label(category, 18, true) .. "  " .. T.Paint(L.ADDON_NAME, T.color.gray)
     lines[#lines + 1] = eventText(summary.latest)
+    if category == "trusted" and summary.bad > 0 then
+      lines[#lines + 1] = SL.Players:Label("warned", 14) -- trusted by you, but the addon saw something
+    end
     if summary.count > 1 then
       lines[#lines + 1] = string.format(L.TOOLTIP_MORE, summary.count - 1)
     end
   elseif summary.latestAny then
     -- only notes: show the newest one (it is what the player wrote to remember this person)
-    lines[#lines + 1] = "|T" .. T.tex.wait .. ":14:14|t " .. T.Paint(L.ADDON_NAME, T.color.gray)
+    lines[#lines + 1] = SL.Players:Label("noted", 16) .. "  " .. T.Paint(L.ADDON_NAME, T.color.gray)
     lines[#lines + 1] = eventText(summary.latestAny)
   elseif record.seen and record.seen > 0 then
     lines[#lines + 1] = "|T" .. T.tex.wait .. ":14:14|t " .. T.Paint(string.format(L.TOOLTIP_SEEN, record.seen), T.color.gray)
@@ -102,9 +119,9 @@ local function onFinderRow(row)
     SL.Diagnostics:Observe("finder_row_hook", { leader = info.leaderName ~= nil, comment = info.comment ~= nil })
   end
   SL.Contract:RememberListing(info.leaderName, info.comment)
-  local summary = summaryFor(info.leaderName)
+  local summary, record = summaryFor(info.leaderName)
   if summary and summary.tone then
-    badge:SetTexture((T.tone[summary.tone] or T.tone.neutral).icon)
+    badge:SetTexture(T.category[Memory.Category(record, API.Now(), SL.settings.memoryDays)].icon)
     -- right after the visible text of the listing name, so it never covers the role/count icons
     if row.Name and row.Name.GetStringWidth then
       local width = math.min(row.Name:GetStringWidth() or 0, row.Name:GetWidth() or 0)
@@ -189,7 +206,7 @@ function MH:OnInvite(_, name)
   if summary and summary.tone then
     SL.Alert:Toast({
       tone = summary.tone,
-      title = string.format(L.INVITE_TITLE, Names.Short(name) or "?"),
+      title = string.format(L.INVITE_TITLE, Names.Short(name) or "?") .. " · " .. SL.Players:Label((SL.Players:Category(name)) or "seen", 14, true),
       body = eventText(summary.latest),
       seconds = 30,
     })
@@ -210,7 +227,7 @@ function MH:OnRoster()
       if summary and (summary.tone == "bad" or summary.tone == "mixed" or summary.tone == "warn") then
         SL.Alert:Toast({
           tone = summary.tone,
-          title = string.format(L.JOINED_TITLE, short),
+          title = SL.Players:Label((SL.Players:Category(short)) or "seen", 16, true) .. " · " .. string.format(L.JOINED_TITLE, short),
           body = eventText(summary.latest),
           seconds = 20,
         })

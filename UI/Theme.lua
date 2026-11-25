@@ -74,6 +74,20 @@ T.tone = {
   neutral = { icon = T.tex.wait, color = T.color.gray },
 }
 
+-- Categories of players: shape (icon) + word + colour. The marks are the game's own raid markers.
+local RT = "Interface\\TargetingFrame\\UI-RaidTargetingIcon_"
+T.category = {
+  all = { icon = "Interface\\GroupFrame\\UI-Group-LeaderIcon", color = T.color.gold },
+  group = { icon = RT .. "6", color = T.color.green },
+  ninja = { icon = RT .. "8", color = T.color.red },
+  extortion = { icon = "Interface\\Icons\\INV_Misc_Coin_01", color = T.color.orange },
+  quitter = { icon = RT .. "7", color = T.color.orange },
+  warned = { icon = T.tex.alert, color = T.color.yellow },
+  trusted = { icon = RT .. "1", color = T.color.green },
+  noted = { icon = "Interface\\Icons\\INV_Misc_Note_01", color = T.color.white },
+  seen = { icon = T.tex.wait, color = T.color.gray },
+}
+
 local S = SOUNDKIT or {}
 T.sound = {
   alarm = S.RAID_WARNING or 8959,

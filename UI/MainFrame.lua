@@ -3,9 +3,9 @@
 local _, SL = ...
 local MF = SL:NewModule("MainFrame")
 SL.MainFrame = MF
-local API, Rules, Memory, Names, UI, T, L = SL.API, SL.Rules, SL.Memory, SL.Names, SL.UI, SL.Theme, SL.L
+local API, Rules, Names, UI, T, L = SL.API, SL.Rules, SL.Names, SL.UI, SL.Theme, SL.L
 
-local WIDTH, HEIGHT = 560, 520 -- (taller in 0.4.0: room for the reserve list)
+local WIDTH, HEIGHT = 640, 520 -- (wider in 0.5.0: the three panes of the Players tab)
 local TABS = { "contract", "journal", "players", "help" }
 
 -- Lists: UI.List (WowScrollBoxList + MinimalScrollBar), one text line per element --------------------------
@@ -90,7 +90,7 @@ local function buildContractTab(page)
   kind:SetPoint("TOPLEFT", 14, -228)
   page.Kind = kind
 
-  local item = UI.Input(page, 186, L.RESERVE_ITEM, 60)
+  local item = UI.Input(page, 266, L.RESERVE_ITEM, 60)
   item.holder:SetPoint("LEFT", kind, "RIGHT", 6, 0)
   page.ItemBox = item
   item:HookScript("OnTextChanged", function(self)
@@ -397,222 +397,31 @@ local function journalItems()
   return items
 end
 
--- Tab 3: Players ------------------------------------------------------------------------------------------------
--- Everyone you grouped with recently is listed (your current group first), with or without notes, so you can pick
--- them. Tags are opinions: one per player; a new one replaces the old one and clicking the active one removes it.
-local TAGS = { { "tag_trusted", "TAG_TRUSTED" }, { "tag_ninja", "TAG_NINJA" }, { "tag_extortion", "TAG_EXTORTION" } }
-
-local function recentPlayers()
-  local recent = {}
-  local function add(name, class, inGroup, last)
-    local short = Names.Short(name)
-    if not short or Names.IsMe(short) then
-      return
-    end
-    local entry = recent[short] or { last = 0 }
-    entry.class = entry.class or (type(class) == "string" and class or nil)
-    entry.inGroup = entry.inGroup or inGroup or false
-    entry.last = math.max(entry.last, last or 0)
-    recent[short] = entry
-  end
-  for _, member in ipairs(API.GroupMembers()) do
-    add(member.name, member.class, true, API.Now())
-  end
-  local current = SL.Run:Current()
-  if current then
-    for name, class in pairs(current.members or {}) do
-      add(name, class, false, current.startedAt)
-    end
-  end
-  for i = #SL.db.runs, math.max(1, #SL.db.runs - 15), -1 do
-    local run = SL.db.runs[i]
-    for name, class in pairs(run.members or {}) do
-      add(name, class, false, run.endedAt or run.startedAt)
-    end
-  end
-  return recent
+-- Tab 3: Players -> UI/PlayersTab.lua
+MF.PlayerList = function(filter)
+  return (SL.PlayersTab.List("all", filter))
 end
 
-local function playerList(filter)
-  local list = Memory.List(SL.db.players, API.Now(), SL.settings.memoryDays, filter)
-  local byName = {}
-  for _, entry in ipairs(list) do
-    byName[entry.name] = entry
+-- Opens the card of a player (from a menu, a toast...).
+function MF:OpenPlayer(name)
+  local short = Names.Short(name)
+  self:Open("players")
+  if not short or not self.frame then
+    return
   end
-  local f = filter and filter ~= "" and Rules.Normalize(filter) or nil
-  for name, info in pairs(recentPlayers()) do
-    local entry = byName[name]
-    if entry then
-      entry.inGroup = info.inGroup
-      entry.record.class = entry.record.class or info.class
-    elseif not f or Rules.Normalize(name):find(f, 1, true) then
-      list[#list + 1] = {
-        name = name, record = { class = info.class, events = {}, last = info.last },
-        summary = Memory.Summary(nil), recent = true, inGroup = info.inGroup,
-      }
-    end
-  end
-  table.sort(list, function(a, b)
-    local ga, gb = a.inGroup and 1 or 0, b.inGroup and 1 or 0
-    if ga ~= gb then
-      return ga > gb
-    end
-    return (a.record.last or 0) > (b.record.last or 0)
-  end)
-  return list
-end
-MF.PlayerList = playerList
-
-local function buildPlayersTab(page)
-  local search = UI.Input(page, 240, L.SEARCH, 48)
-  search.holder:SetPoint("TOPLEFT", 14, -14)
-  search:HookScript("OnTextChanged", function()
-    -- typing decides who the buttons act on: that player if known, otherwise the typed name (never the player
-    -- that happened to be selected before: that was the real-client bug)
-    local typed = Rules.Clean(search:GetText() or "", 48)
-    local short = typed and Names.Short(typed)
-    page.selected = (short and SL.db.players[short]) and short or nil
-    MF:Refresh()
-  end)
-  page.Search = search
-
-  local inset = UI.Create("Frame", page, "InsetFrameTemplate")
-  inset:SetPoint("TOPLEFT", 10, -48)
-  inset:SetPoint("BOTTOMRIGHT", -10, 150)
-  page.List = makeList(inset, 22, function(row, data)
-    local color = API.ClassColor(data.record.class)
-    local name = color and ("|c" .. (color.colorStr or T.Hex(color)) .. data.name .. "|r") or data.name
-    local tone = data.summary.tone and UI.ToneLine(data.summary.tone) or ("|T" .. T.tex.wait .. ":14:14|t")
-    local here = data.inGroup and ("  " .. T.Paint(L.IN_GROUP_NOW, T.color.green)) or ""
-    local latest = data.summary.latest or data.summary.latestAny
-    local extra = latest and SL.MemoryHooks.EventText(latest) or L.NO_NOTES
-    local mark = page.selected == data.name and T.Paint("» ", T.color.gold) or ""
-    row.Text:SetText(mark .. tone .. "  " .. name .. here .. "   " .. T.Paint(extra, T.color.gray))
-  end, function(data)
-    page.selected = data.name
-    MF:Refresh()
-  end)
-
-  -- detail in its own mouse-enabled frame so the item links in it can be hovered and clicked
-  local detailFrame = CreateFrame("Frame", nil, page)
-  detailFrame:SetPoint("TOPLEFT", inset, "BOTTOMLEFT", 0, -4)
-  detailFrame:SetPoint("TOPRIGHT", inset, "BOTTOMRIGHT", 0, -4)
-  detailFrame:SetHeight(74)
-  detailFrame:EnableMouse(true)
-  UI.EnableLinks(detailFrame)
-  local detail = UI.Text(detailFrame, "small", "", "LEFT")
-  detail:SetPoint("TOPLEFT", 6, -2)
-  detail:SetPoint("RIGHT", -6, 0)
-  detail:SetJustifyV("TOP")
-  page.Detail = detail
-  page.DetailFrame = detailFrame
-
-  local function target()
-    if page.selected then
-      return page.selected
-    end
-    local typed = Rules.Clean(page.Search:GetText() or "", 48)
-    return typed and Names.Short(typed) or nil
-  end
-  page.Target = target
-  local function tag(kind)
-    return function()
-      local name = target()
-      if name then
-        Memory.SetTag(SL.db.players, name, kind, API.Now(), API.PlaceName())
-        page.selected = Names.Short(name)
-        SL:Fire("MEMORY_CHANGED", name)
-        MF:Refresh()
-      end
+  local page = self.pages.players
+  page.category = "all"
+  page.Search:SetText(SL.db.players[short] and "" or short)
+  page.Search.Refresh()
+  page.selected = SL.db.players[short] and short or nil
+  for _, entry in ipairs(SL.PlayersTab.All()) do
+    if entry.name == short then
+      page.Search:SetText("")
+      page.Search.Refresh()
+      page.selected = short
     end
   end
-
-  local note = UI.Input(page, 400, L.NOTE_PLACEHOLDER, 200)
-  note.holder:SetPoint("BOTTOMLEFT", 14, 46)
-  page.Note = note
-  local function addNote()
-    local name = target()
-    local text = Rules.Clean(note:GetText() or "", 200)
-    if name and text then
-      Memory.Add(SL.db.players, name, { kind = "note", t = API.Now(), note = text, place = API.PlaceName() })
-      page.selected = Names.Short(name)
-      note:SetText("")
-      note:ClearFocus()
-      SL:Fire("MEMORY_CHANGED", name)
-      MF:Refresh()
-    end
-  end
-  note:SetScript("OnEnterPressed", addNote)
-  page.NoteButton = UI.Button(page, L.NOTE_ADD, 110, addNote, L.NOTE_ADD, L.NOTE_TIP)
-  page.NoteButton:SetPoint("LEFT", note.holder, "RIGHT", 8, 0)
-  page.tagButtons = {}
-  for i, spec in ipairs(TAGS) do
-    local b = UI.Button(page, L[spec[2]], 122, tag(spec[1]), L[spec[2]], L.TAG_TIP)
-    b:SetPoint("BOTTOMLEFT", 14 + (i - 1) * 128, 14)
-    page.tagButtons[i] = b
-  end
-  local forget = UI.Button(page, L.FORGET, 122, function()
-    local name = target()
-    if name and SL.db.players[name] then
-      Memory.Forget(SL.db.players, name)
-      page.selected = nil
-      SL:Fire("MEMORY_CHANGED", name)
-      MF:Refresh()
-    end
-  end)
-  forget:SetPoint("BOTTOMLEFT", 14 + #TAGS * 128, 14)
-  page.tagButtons[#TAGS + 1] = forget
-end
-
-local function refreshPlayersTab(page)
-  local list = playerList(page.Search:GetText())
-  page.List:Set(list)
-  local name = page.Target()
-  local record = name and SL.db.players[name]
-  if record then
-    local lines = { T.Paint(name, T.color.gold) .. "  " .. (API.LocalizedClass(record.class) or "")
-      .. (record.seen and record.seen > 0 and T.Paint("  ·  " .. string.format(L.TOOLTIP_SEEN, record.seen), T.color.gray) or "") }
-    for i = #record.events, math.max(1, #record.events - 3), -1 do
-      lines[#lines + 1] = "• " .. SL.MemoryHooks.EventText(record.events[i])
-    end
-    if #record.events == 0 then
-      lines[#lines + 1] = T.Paint(L.NO_NOTES, T.color.gray)
-    end
-    page.Detail:SetText(table.concat(lines, "\n"))
-  elseif name then
-    local listed = false
-    for _, entry in ipairs(list) do
-      if entry.name == name then
-        listed = true
-      end
-    end
-    page.Detail:SetText(T.Paint(string.format(listed and L.PLAYER_NO_NOTES or L.NEW_PLAYER_HINT, name), T.color.gray))
-  elseif #list == 0 then
-    page.Detail:SetText(T.Paint(L.PLAYERS_EMPTY, T.color.gray))
-  else
-    page.Detail:SetText(T.Paint(L.PLAYERS_PICK, T.color.gray))
-  end
-  local active = record and Memory.ActiveTag(record)
-  for i, b in ipairs(page.tagButtons) do
-    local isForget = i > #TAGS
-    if name and (not isForget or record) then
-      b:Enable()
-    else
-      b:Disable()
-    end
-    if not isForget then
-      if active == TAGS[i][1] then
-        b:LockHighlight()
-      else
-        b:UnlockHighlight()
-      end
-    end
-  end
-  if name then
-    page.NoteButton:Enable()
-  else
-    page.NoteButton:Disable()
-  end
+  self:Refresh()
 end
 
 -- Tab 4: Help ---------------------------------------------------------------------------------------------------
@@ -634,7 +443,7 @@ local function helpItems()
   head(L.HELP_COMMANDS_TITLE)
   for _, cmd in ipairs({ { "", L.CMD_OPEN }, { "test", L.CMD_TEST }, { "alarm", L.CMD_DEMO_ALARM },
     { "mark", L.CMD_DEMO_MARK }, { "summary", L.CMD_DEMO_SUMMARY }, { "welcome", L.CMD_WELCOME },
-    { "settings", L.CMD_SETTINGS }, { "minimap", L.CMD_MINIMAP }, { "exceptions", L.CMD_RESET_EXCEPTIONS } }) do
+    { "settings", L.CMD_SETTINGS }, { "minimap", L.CMD_MINIMAP }, { "reset", L.CMD_RESET }, { "exceptions", L.CMD_RESET_EXCEPTIONS } }) do
     line(T.Paint("/safeloot " .. cmd[1], T.color.white) .. " — " .. cmd[2])
   end
   head(L.HELP_LOOT_TITLE)
@@ -720,7 +529,7 @@ function MF:Build()
   end
   buildContractTab(self.pages.contract)
   buildJournalTab(self.pages.journal)
-  buildPlayersTab(self.pages.players)
+  SL.PlayersTab.Build(self.pages.players)
   buildHelpTab(self.pages.help)
   self.frame = frame
   self:Open("contract", true)
@@ -766,7 +575,7 @@ function MF:Refresh()
   elseif self.tab == "journal" then
     self.pages.journal.List:Set(journalItems())
   elseif self.tab == "players" then
-    refreshPlayersTab(self.pages.players)
+    SL.PlayersTab.Refresh(self.pages.players)
   elseif self.tab == "help" then
     self.pages.help.List:Set(helpItems())
   end
@@ -808,6 +617,10 @@ function MF:OnEnable()
   SL:RegisterCommand("journal", function()
     MF:Open("journal")
   end, L.CMD_JOURNAL, { "diario" })
+  SL:RegisterCommand("reset", function()
+    UI.ResetPositions()
+    SL:Print(L.POSITIONS_RESET)
+  end, L.CMD_RESET, { "colocar" })
   SL:RegisterCommand("help", function()
     MF:Open("help")
   end, L.CMD_HELP, { "ayuda" })

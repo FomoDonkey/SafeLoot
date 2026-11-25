@@ -98,6 +98,9 @@ function Widget:GetName() return self._name end
 function Widget:IsMouseOver() return false end
 function Widget:HasFocus() return false end
 function Widget:GetID() return self._id or 0 end
+function Widget:EnableMouse(v) self._mouse = v and true or false end
+function Widget:SetMovable(v) self._movable = v end
+function Widget:RegisterForDrag(b) self._drag = b end
 function Widget:SetID(id) self._id = id end
 function Widget:Click() if self._scripts.OnClick then self._scripts.OnClick(self, "LeftButton") end end
 function Widget:CreateFontString() return newWidget("FontString", nil, self) end
@@ -205,10 +208,11 @@ function UnitName(unit)
 end
 function UnitClass(unit) local u = SIM.units[unit]; if not u then return nil end return u.class, u.class end
 function UnitIsGroupLeader(unit) return unit == SIM.leaderUnit end
-function UnitIsPlayer(unit) return SIM.units[unit] ~= nil end
+function UnitIsPlayer(unit) return SIM.units[unit] ~= nil end -- (a creature target lives in SIM.target)
 LOCALIZED_CLASS_NAMES_MALE = { MAGE = "Mago", PRIEST = "Sacerdote", WARRIOR = "Guerrero", ROGUE = "Pícaro" }
 RAID_CLASS_COLORS = { MAGE = { r = 0.25, g = 0.78, b = 0.92, colorStr = "ff3fc7eb" } }
 
+C_Texture = { GetAtlasInfo = function(a) return a:match("^classicon%-%l+$") and { width = 64 } or nil end }
 C_AddOns = { GetAddOnMetadata = function(_, field) if field == "Version" then return "0.1.0-test" end end }
 C_Timer = { After = function(_, fn) table.insert(SIM.timers, fn) end }
 C_PartyInfo = {
@@ -331,12 +335,33 @@ ChatFrameUtil = { InsertLink = function() end } -- the function Forever's own co
 ChatEdit_InsertLink = ChatFrameUtil.InsertLink  -- deprecated alias, as in the real client
 function IsModifiedClick() return SIM.modifiedClick == true end
 function HandleModifiedItemClick(link) SIM.modifiedLinks = SIM.modifiedLinks or {}; table.insert(SIM.modifiedLinks, link); return true end
+-- a menu description that records what is added to it (unit menus)
+function SIM.menuRoot()
+  local root = { entries = {} }
+  function root:CreateTitle(text) self.title = text end
+  function root:CreateDivider() end
+  function root:CreateRadio(text, isSelected, setSelected) table.insert(self.entries, { text = text, radio = isSelected, fn = setSelected }) end
+  function root:CreateButton(text, fn)
+    local sub = SIM.menuRoot()
+    sub.text, sub.fn = text, fn
+    table.insert(self.entries, sub)
+    return sub
+  end
+  return root
+end
+SIM.menuHooks = {}
+Menu = { ModifyMenu = function(tag, fn) SIM.menuHooks[tag] = fn end }
+TargetFrame = newWidget("Frame", "TargetFrame")
 MenuUtil = {
   CreateContextMenu = function(owner, generator)
     local root = { title = nil, entries = {} }
     function root:CreateTitle(text) self.title = text end
     function root:CreateButton(text, fn) table.insert(self.entries, { text = text, fn = fn }) end
     function root:SetScrollMode(h) self.scroll = h end
+    function root:CreateRadio(text, isSelected, setSelected, data)
+      table.insert(self.entries, { text = text, radio = isSelected, fn = setSelected, data = data })
+    end
+    function root:CreateDivider() end
     generator(owner, root)
     SIM.lastMenu = root
   end,

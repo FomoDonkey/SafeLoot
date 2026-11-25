@@ -221,12 +221,16 @@ function LP:Build()
   f.Hint:SetHeight(56)
   f.Hint:SetJustifyV("TOP")
   self.frame = f
+  UI.Movable(f, "picker", LP.Beside)
 end
 
 -- Beside the main window, on the side with room.
 function LP:Place()
-  local f, main = self.frame, SL.MainFrame.frame
-  f:ClearAllPoints()
+  self.frame:RestorePosition() -- where you left it, or beside the main window
+end
+
+local function beside(f)
+  local main = SL.MainFrame.frame
   if not (main and main:IsShown()) then
     f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
     return
@@ -241,6 +245,7 @@ function LP:Place()
     f:SetPoint("TOPRIGHT", main, "TOPLEFT", -2, 0)
   end
 end
+LP.Beside = beside
 
 function LP:Open(mapID)
   if SL:InCombat() and not self.frame then

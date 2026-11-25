@@ -58,7 +58,20 @@ function M.Add(players, name, event)
   end
   table.insert(record.events, event)
   while #record.events > M.MAX_EVENTS do
-    table.remove(record.events, 1)
+    -- the oldest automatic event goes first; what the player wrote or decided is the last thing to lose
+    local drop
+    for i, old in ipairs(record.events) do
+      if not M.PERMANENT[old.kind] then
+        drop = i
+        break
+      end
+    end
+    for i, old in ipairs(record.events) do
+      if not drop and old.kind == "note" then
+        drop = i
+      end
+    end
+    table.remove(record.events, drop or 1)
   end
   return record
 end
@@ -67,6 +80,16 @@ end
 -- active tag again removes it (seen in the real client: repeated clicks piled up and produced "Mixed").
 M.MANUAL = { tag_trusted = true, tag_goodleader = true, tag_ninja = true, tag_extortion = true, tag_quitter = true,
   tag_rude = true }
+
+-- What the player decided or wrote never expires (0.5.0: marks used to vanish after 90 days). Automatic events do.
+M.PERMANENT = { note = true }
+for kind in pairs(M.MANUAL) do
+  M.PERMANENT[kind] = true
+end
+
+-- Categories of the Players tab.
+M.TAG_CATEGORY = { tag_ninja = "ninja", tag_extortion = "extortion", tag_quitter = "quitter", tag_rude = "warned",
+  tag_trusted = "trusted", tag_goodleader = "trusted" }
 
 function M.ActiveTag(record)
   if type(record) ~= "table" then
@@ -111,7 +134,43 @@ function M.Forget(players, name)
 end
 
 local function alive(event, now, days)
-  return not days or not event.t or (now - event.t) <= days * M.DAY
+  return M.PERMANENT[event.kind] or not days or not event.t or (now - event.t) <= days * M.DAY
+end
+
+-- One category per player: your opinion first; then what the addon saw; then written notes; else just "seen".
+function M.Category(record, now, days)
+  local tag = M.ActiveTag(record)
+  if tag then
+    return M.TAG_CATEGORY[tag] or "seen"
+  end
+  local noted = false
+  for _, event in ipairs(type(record) == "table" and record.events or {}) do
+    local info = M.KINDS[event.kind]
+    if info and info.auto and (info.tone == "bad" or info.tone == "warn") and alive(event, now or 0, days) then
+      return "warned"
+    end
+    noted = noted or event.kind == "note"
+  end
+  return noted and "noted" or "seen"
+end
+
+-- Capital letters for labels, accents included (string.upper depends on the locale).
+function M.Upper(text)
+  return (text:gsub("[a-z]", function(c)
+    return string.char(c:byte() - 32)
+  end):gsub("\195([\160-\182\184-\190])", function(c)
+    return "\195" .. string.char(c:byte() - 32)
+  end))
+end
+
+-- Removes one event (a note, a mark, an automatic event) if it is still the one shown.
+function M.RemoveEvent(players, name, index, event)
+  local record = M.Get(players, name)
+  if not record or record.events[index] == nil or (event and record.events[index] ~= event) then
+    return false
+  end
+  table.remove(record.events, index)
+  return true
 end
 
 -- Returns { tone = "bad" | "warn" | "good" | "mixed" | nil, bad, warn, good, latest, latestAny, count } over live
@@ -169,11 +228,20 @@ function M.Prune(players, now, days, maxPlayers)
       players[name] = nil
       removed = removed + 1
     else
-      list[#list + 1] = { name = name, last = record.last or 0 }
+      local kept_forever = false
+      for _, event in ipairs(kept) do
+        kept_forever = kept_forever or M.PERMANENT[event.kind] or false
+      end
+      list[#list + 1] = { name = name, last = record.last or 0, keep = kept_forever }
     end
   end
   if maxPlayers and #list > maxPlayers then
-    table.sort(list, function(a, b) return a.last < b.last end)
+    table.sort(list, function(a, b)
+      if a.keep ~= b.keep then
+        return b.keep -- players with your marks or notes are the last to go
+      end
+      return a.last < b.last
+    end)
     for i = 1, #list - maxPlayers do
       players[list[i].name] = nil
       removed = removed + 1

@@ -20,6 +20,7 @@ local OPTIONS = {
   { key = "detector" }, { key = "suggestRules" }, { key = "summaryAlways" }, { key = "shareLoot" },
   { section = "SECTION_MEMORY" },
   { key = "memory" }, { key = "showTooltip" }, { key = "showFinder" }, { key = "showInvite" }, { key = "showGroupJoin" },
+  { key = "showTarget" }, { key = "showWhisper" }, { key = "showUnitMenu" },
   { key = "memoryDays", min = 30, max = 365, step = 15 },
   { section = "SECTION_ACCESS" },
   { key = "largeText" }, { key = "reduceMotion" }, { key = "sounds" },

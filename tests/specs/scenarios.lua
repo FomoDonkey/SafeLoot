@@ -208,7 +208,7 @@ test("player tooltip shows the memory line", function()
     call.fn(GameTooltip)
   end
   ok(#GameTooltip._lines >= 2, "lines added")
-  ok(contains(GameTooltip._lines[1], L.TONE_BAD) or contains(GameTooltip._lines[1], L.TONE_MIXED), GameTooltip._lines[1])
+  ok(contains(GameTooltip._lines[1], SL.Memory.Upper(L.LABEL_WARNED)), "the word in big: " .. GameTooltip._lines[1])
 end)
 
 test("group finder row gets a badge for a remembered leader", function()

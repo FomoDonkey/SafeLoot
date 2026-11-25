@@ -14,7 +14,7 @@ local STEPS = {
 function W:Build()
   local card = UI.Card(UIParent, 440, 300, "SafeLootWelcome")
   card:SetFrameStrata("DIALOG")
-  card:SetPoint("CENTER", 0, 60)
+  UI.Movable(card, "welcome", { "CENTER", UIParent, "CENTER", 0, 60 })
   local portrait = UI.Icon(card, 40, T.tex.portrait, "OVERLAY")
   portrait:SetPoint("TOPLEFT", 20, -20)
   local title = UI.Text(card, "title", L.WELCOME_TITLE, "LEFT")

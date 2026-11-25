@@ -8,7 +8,7 @@ SafeLoot warns you, remembers and keeps evidence. It never blocks, punishes or p
 
 - **The Watcher** — an alarm (the game's own centre warning and raid-warning sound, plus an action panel) when the leader switches to master loot or changes the loot rules mid-run.
 - **The Detector** — flags Need rolls on items the roller's class can never use, and rolls that break the agreed rules.
-- **The Memory** — private notes on players: shown in the tooltip, in the Group Finder, when someone invites you and when someone joins your group. Your notes never leave your PC, and they expire.
+- **The Memory** — mark players (ninja, sells loot, quits, trusted) with a right click and recognise them at a glance: tooltip, badge under your target, Group Finder, invitations, whispers, people joining your group. An address book with categories keeps it tidy. Your marks and notes never leave your PC and stay until you remove them; automatic alerts expire.
 - **The Rules** — agree on the rules before the run with one chat line everyone can read. "ok" replies are recorded with the time. Rules the leader writes (HR, SR, MS>OS…) are offered to you as a suggestion.
 - **Loot by boss** — choose the dungeon and pick the items to reserve from each boss's list instead of typing their names. Items really seen dropping are marked as such; SafeLoot users in the same group exchange item numbers per boss (never names, notes or chat; it can be turned off).
 - **The Summary** — after each run: whether the rules were kept, who got what, and a plain-text copy for Discord.
@@ -33,12 +33,13 @@ Native look (the game's own windows, fonts, icons and sounds), accessible (never
 | `players` | Open the Players tab |
 | `journal` | Open the Journal tab |
 | `minimap` | Show or hide the minimap button |
+| `reset` | Put every window back in its first place |
 | `settings` | Open the settings |
 | `welcome` | Show the welcome card again |
 | `help` | Open the Help tab |
 | `exceptions` | Clear the detector exceptions |
 
-Spanish aliases also work: `prueba`, `alarma`, `marca`, `resumen`, `reglas`, `jugadores`, `diario`, `minimapa`, `ajustes`, `bienvenida`, `ayuda`, `excepciones`.
+Spanish aliases also work: `prueba`, `alarma`, `marca`, `resumen`, `reglas`, `jugadores`, `diario`, `minimapa`, `colocar`, `ajustes`, `bienvenida`, `ayuda`, `excepciones`.
 
 ## Development
 - The rules of the project are in [`docs/PROMPT_MAESTRO.md`](docs/PROMPT_MAESTRO.md).
