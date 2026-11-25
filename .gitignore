@@ -5,3 +5,4 @@ events.jsonl
 tools/remote.local.json
 tools/.db2cache/
 art/logo/v1/
+dist/
