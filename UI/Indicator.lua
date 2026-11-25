@@ -73,7 +73,7 @@ function I:ShowTooltip(owner)
   GameTooltip:AddLine(SL.Contract:Summary(c), 1, 1, 1, true)
   for _, reserve in ipairs(c and c.reserves or {}) do
     GameTooltip:AddLine("• " .. (reserve.kind == "soft" and "SR " or "HR ") .. reserve.item
-      .. (reserve.owner and (" → " .. reserve.owner) or ""), 1, 1, 1, true)
+      .. (reserve.owner and (" > " .. reserve.owner) or ""), 1, 1, 1, true)
   end
   if c and c.publishedAt then
     local names = {}

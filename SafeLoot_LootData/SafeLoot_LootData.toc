@@ -6,7 +6,7 @@
 ## Notes-frFR: Tables de butin des boss pour SafeLoot, dérivées d'AtlasLoot Classic Forever (GPL v2). Facultatif.
 ## Notes-ptBR: Tabelas de saque dos chefes para o SafeLoot, derivadas do AtlasLoot Classic Forever (GPL v2). Opcional.
 ## Author: FomoDonkey; loot tables by sliccer, Hoizame and the AtlasLoot contributors
-## Version: 0.5.0
+## Version: 0.5.1
 ## X-License: GPL-2.0
 ## Dependencies: SafeLoot
 ## IconTexture: Interface\AddOns\SafeLoot\Media\Icon

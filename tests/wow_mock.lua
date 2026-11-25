@@ -151,6 +151,7 @@ Minimap._width, Minimap._height = 198, 198
 function Minimap:GetCenter() return 1000, 600 end
 function Minimap:GetEffectiveScale() return 1 end
 function GetCursorPosition() return SIM.cursorX or 1000, SIM.cursorY or 600 end
+function Screenshot() SIM.shots = (SIM.shots or 0) + 1; if SIM.onShot then SIM.onShot(SIM.shots) end end
 UISpecialFrames = {}
 SlashCmdList = {}
 

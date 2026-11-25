@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.1 — 2026-11-25 — seen in the real client
+- The arrow before a name was drawn as an empty box (the game's font does not have it): it is a ">" now, also in the published chat line.
+- The opinion buttons and the owner button can be read: no more red or purple words on red buttons.
+- The journal and the summary list the drops in the order they fell, with the time (the order changed every time).
+- The chat line no longer starts with a loose dot when nothing has been chosen.
+- The demos use real items of the game in the game's language.
+- Screenshot mode for the add-on's page (`/safeloot shots`): an invented group, on this screen only.
+
 ## 0.5.0 — 2026-11-24 — the address book
 Not yet seen in the real client.
 - Players tab rebuilt as three panes: categories with icon and number (in my group, ninja, sells loot, quits, alerts, trusted, with notes, met before), the list (two lines, class icon, coloured bar, order by recent / A-Z / most runs) and the card (opinion, notes that can be removed one by one). Searching looks in every category.

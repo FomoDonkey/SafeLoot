@@ -171,6 +171,12 @@ function SP:Open()
 end
 
 -- Demos: see the screens without waiting for a real run ------------------------------------------------------
+-- a real item of the game, in the game's language
+function SP.Example(id)
+  local info = SL.Catalog:ItemInfo(id)
+  return info and info.link or "[?]"
+end
+
 function SP:DemoAlarm()
   SL.Alert:Alarm({
     severity = 3,
@@ -189,7 +195,7 @@ function SP:DemoMark()
   SL.Alert:Toast({
     tone = "bad",
     title = L.MARK_IMPOSSIBLE,
-    body = string.format(L.MARK_LINE, "Zarn Brasa", "[Coraza de malla]", string.format(L.REASON_CLASS_ARMOR, API.LocalizedClass("MAGE") or "Mage")),
+    body = string.format(L.MARK_LINE, "Zarn Brasa", SP.Example(13344), string.format(L.REASON_CLASS_ARMOR, API.LocalizedClass("MAGE") or "Mage")),
     seconds = 15,
     action = { label = L.ACTION_TELL_GROUP, fn = function() SL:Print(L.DEMO_NOTHING_SENT) end },
   })
@@ -197,14 +203,14 @@ end
 
 function SP:DemoSummary()
   SL.Run:ShowSummary({
-    place = "Cumbre de Roca Negra", startedAt = API.Now() - 3600,
+    place = (SL.Catalog:Instance(329) or {}).name or "Stratholme", startedAt = API.Now() - 3600,
     events = {
       { kind = "contract", t = API.Now() - 3500, text = T.Paint(L.CONTRACT_PUBLISHED, T.color.gold) .. " " .. L.METHOD_3 .. " · " .. L.NEED_msos },
       { kind = "agreed", t = API.Now() - 3490, text = string.format(L.CONTRACT_AGREED, "Krag Hierro", "21:04") },
-      { kind = "mark", t = API.Now() - 1800, text = "|T" .. T.tex.bad .. ":14:14|t " .. string.format(L.MARK_LINE, "Zarn Brasa", "[Coraza de malla]", string.format(L.REASON_CLASS_ARMOR, API.LocalizedClass("MAGE") or "Mage")) },
+      { kind = "mark", t = API.Now() - 1800, text = "|T" .. T.tex.bad .. ":14:14|t " .. string.format(L.MARK_LINE, "Zarn Brasa", SP.Example(13344), string.format(L.REASON_CLASS_ARMOR, API.LocalizedClass("MAGE") or "Mage")) },
       { kind = "rules_changed", t = API.Now() - 600, severity = 3, text = T.Paint(L.ALARM_ML_TITLE, T.color.red) },
     },
-    drops = { a = { item = "[Mano de Dal'Rend]", winner = "Krag Hierro" } },
+    drops = { a = { item = SP.Example(13340), winner = "Krag Hierro" } },
   })
 end
 

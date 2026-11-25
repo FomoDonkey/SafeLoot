@@ -101,6 +101,23 @@ function Run:HasIssues(run)
   return false
 end
 
+-- Drops with a winner, in the order they fell.
+function Run.SortedDrops(run)
+  local list = {}
+  for _, drop in pairs(run.drops or {}) do
+    if drop.winner then
+      list[#list + 1] = drop
+    end
+  end
+  table.sort(list, function(a, b)
+    if (a.t or 0) ~= (b.t or 0) then
+      return (a.t or 0) < (b.t or 0)
+    end
+    return tostring(a.item) < tostring(b.item)
+  end)
+  return list
+end
+
 -- Summary text (also used by "Copy summary").
 function Run:SummaryLines(run)
   local lines = {}
@@ -121,10 +138,9 @@ function Run:SummaryLines(run)
       lines[#lines + 1] = UI.FormatDate(event.t):sub(7) .. "  " .. event.text
     end
   end
-  for _, drop in pairs(run.drops) do
-    if drop.winner then
-      lines[#lines + 1] = string.format(L.SUMMARY_DROP, drop.item or "?", drop.winner)
-    end
+  for _, drop in ipairs(Run.SortedDrops(run)) do
+    local when = drop.t and (UI.FormatDate(drop.t):sub(7) .. "  ") or ""
+    lines[#lines + 1] = when .. string.format(L.SUMMARY_DROP, drop.item or "?", drop.winner)
   end
   return lines
 end

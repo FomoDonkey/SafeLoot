@@ -290,7 +290,7 @@ function SL:HandleSlash(input)
     SL:Print(SL.L.HELP_HEADER or "Commands:")
     local names = {}
     for name, info in pairs(commands) do
-      if not info.alias then
+      if not info.alias and info.help then
         names[#names + 1] = name
       end
     end

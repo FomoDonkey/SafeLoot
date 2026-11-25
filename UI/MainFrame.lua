@@ -134,7 +134,7 @@ local function buildContractTab(page)
   page.ReserveList = makeList(resInset, 18, function(row, data)
     local link = data.reserve.itemID and SL.Catalog:ItemInfo(data.reserve.itemID)
     local shown = link and link.link or T.Paint(data.reserve.item, T.color.white)
-    local who = data.reserve.owner and ("  → " .. MF:ColoredName(data.reserve.owner)) or ""
+    local who = data.reserve.owner and ("  > " .. MF:ColoredName(data.reserve.owner)) or ""
     row.Text:SetText(T.Paint(data.reserve.kind == "soft" and "SR" or "HR", T.color.gold) .. "  " .. shown .. who)
   end, nil, {
     build = function(row)
@@ -242,7 +242,7 @@ local function refreshContractTab(page)
     end
   end
   page.Kind:SetText(page.kind == "soft" and "SR" or "HR")
-  page.OwnerButton:SetText("→ " .. (page.owner and MF:ColoredName(page.owner) or T.Paint(L.OWNER_NOBODY, T.color.gray)))
+  page.OwnerButton:SetText("> " .. (page.owner or L.OWNER_NOBODY))
   page.Preview:SetText(T.Paint(SL.Contract:ChatLine(c), T.color.white))
   for _, check in ipairs(page.rules) do
     check:Refresh()
@@ -378,10 +378,8 @@ local function journalItems()
         items[#items + 1] = { text = "   " .. (date and date("%H:%M", event.t) or "") .. "  " .. event.text }
       end
     end
-    for _, drop in pairs(run.drops or {}) do
-      if drop.winner then
-        items[#items + 1] = { text = "   " .. string.format(L.SUMMARY_DROP, drop.item or "?", drop.winner) }
-      end
+    for _, drop in ipairs(SL.Run.SortedDrops(run)) do
+      items[#items + 1] = { text = "   " .. (date and drop.t and (date("%H:%M", drop.t) .. "  ") or "") .. string.format(L.SUMMARY_DROP, drop.item or "?", drop.winner) }
     end
   end
   local current = SL.Run:Current()

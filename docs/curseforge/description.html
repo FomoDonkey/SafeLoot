@@ -1,7 +1,8 @@
+<p style="text-align: center;"><img src="https://media.forgecdn.net/attachments/2271/114/01-banner-png.png" alt="SafeLoot: your loot finally has a guardian" width="840" /></p>
 <h2>Your loot finally has a guardian.</h2>
 <p>You joined a group of strangers. Two hours in, the item you came for drops, and at that very moment the leader switches to <strong>master loot</strong>. Or the mage rolls <strong>Need</strong> on plate. Or someone &quot;reserves&quot; it after it drops and offers to sell it to you.</p>
 <p><strong>SafeLoot is the chest that watches.</strong> It tells you the second the rules change, flags the rolls that make no sense, keeps the agreement everyone accepted, and remembers who you met, so the next time you see them you already know.</p>
-<blockquote><p><strong>It works even if you are the only one in the group who has it.</strong> No account, no website, no extra program. And it never writes in chat unless you press a button.</p></blockquote>
+<blockquote><p><strong>It works even if you are the only one in the group who has it.</strong> No account, no website, no extra program. And it never writes in chat unless you press a button. The code is open source.</p></blockquote>
 <hr />
 <h2>What it does for you</h2>
 <h3>The Watcher: the alarm nobody can turn off behind your back</h3>
@@ -22,6 +23,7 @@
 <li>Every <em>ok</em> is recorded with its time. <em>2/3 agreed</em>, at a glance.</li>
 <li>If the leader writes HR, SR or MS&gt;OS in chat, SafeLoot offers to use it as the rules.</li>
 </ul>
+<p style="text-align: center;"><img src="https://media.forgecdn.net/attachments/2271/115/02-rules-png.png" alt="The rules tab, real screenshot" width="840" /></p>
 <h3>Loot by boss: pick, don't type</h3>
 <ul>
 <li>The <strong>28 dungeons of WoW: Forever, the nine new ones included</strong>, and Onyxia's Lair, sorted by level, with their bosses.</li>
@@ -34,10 +36,25 @@
 <li>From then on you see it everywhere, with an icon <strong>and</strong> a word: tooltip, a badge under your target, the Group Finder, invitations, whispers, and the moment they join your group.</li>
 <li>Categories with counters, a card for each player, notes, search, and your current group always on top. Hundreds of names without the mess.</li>
 </ul>
+<p style="text-align: center;"><img src="https://media.forgecdn.net/attachments/2271/116/03-players-png.png" alt="The address book, real screenshot with the names hidden" width="840" /></p>
 <h3>The Journal: what happened, in writing</h3>
 <ul>
 <li>After each run: whether the rules were kept, who got what, and a plain-text copy ready for Discord.</li>
 </ul>
+<hr />
+<h2>New here? Don't trust us, check it</h2>
+<p>SafeLoot is a new add-on, and it is normal to be careful with something you have never heard of. Everything below can be checked by you, or by anyone you know who reads code.</p>
+<ul>
+<li><strong>Open source.</strong> The code is public and MIT licensed: <a href="https://github.com/FomoDonkey/SafeLoot">github.com/FomoDonkey/SafeLoot</a>. No hidden or scrambled code: every file in the download is plain text you can open, except three small images.</li>
+<li><strong>Nothing to install outside the game.</strong> No .exe, no launcher, no website account, no login. The download is 35 Lua files, 1 XML, 3 images, 2 TOC files and the licences.</li>
+<li><strong>It cannot see your password, your files or the internet.</strong> The game runs every add-on in a closed box, and SafeLoot is no exception.</li>
+<li><strong>It cannot act on anyone.</strong> There is no code in it to kick, invite, ignore, report, trade, mail, roll or pass. Search for it.</li>
+<li><strong>Only three things can be written in chat</strong>, and each one needs your click: publishing the rules, asking the group about a change, and telling the group about a roll.</li>
+<li><strong>What leaves your PC:</strong> item numbers per boss, shared with other SafeLoot users in your group (you can turn it off), and a small test ping if you press the self-test. Never names, marks or notes.</li>
+<li><strong>Tested.</strong> The test suite is public, and 0.5.1 passed its 657 automatic checks before it was uploaded. What we have not yet seen working in the real game is listed below, in plain words.</li>
+<li><strong>Easy to leave.</strong> Delete the folders <em>SafeLoot</em> and <em>SafeLoot_LootData</em> and it is gone. Only its own settings file stays in your WTF folder, until you delete it.</li>
+</ul>
+<p>Something you don't like, or a doubt? Ask in the comments or on <a href="https://github.com/FomoDonkey/SafeLoot/issues">GitHub</a>.</p>
 <hr />
 <h2>Start in one minute</h2>
 <ol>
@@ -51,7 +68,7 @@
 <ul>
 <li><strong>Private.</strong> Your marks and notes stay on your PC. There are no public lists of players and there never will be.</li>
 <li><strong>Never acts for you.</strong> It does not kick, block, report or roll. Nothing goes to chat without your click.</li>
-<li><strong>SafeLoot users in the same group exchange only item numbers per boss</strong>, never names, notes or chat. You can turn it off.</li>
+<li><strong>SafeLoot users in the same group share item numbers per boss</strong>, never names, notes or chat. You can turn it off.</li>
 <li><strong>Light.</strong> No libraries, and nothing runs every frame in the background.</li>
 </ul>
 <h2>It feels like part of the game</h2>
@@ -83,4 +100,5 @@
 <li><strong>Agenda de jugadores:</strong> clic derecho para marcar Ninja, Confianza, Vende bot&iacute;n o Abandona, y lo ver&aacute;s en todas partes.</li>
 <li><strong>Diario</strong> de cada grupo, listo para copiar en Discord.</li>
 </ul>
+<p><strong>&iquest;Desconf&iacute;as? Es normal, compru&eacute;balo:</strong> c&oacute;digo abierto y legible en <a href="https://github.com/FomoDonkey/SafeLoot">GitHub</a>, sin programas, cuentas ni librer&iacute;as. No tiene c&oacute;digo para expulsar, denunciar, comerciar ni tirar dados, y solo escribe en el chat cuando pulsas un bot&oacute;n. Para quitarlo, borra las carpetas <em>SafeLoot</em> y <em>SafeLoot_LootData</em>.</p>
 <p>Abre el addon con el bot&oacute;n del minimapa o con <strong>/safeloot</strong>. Tus marcas y notas no salen de tu PC y no hay listas p&uacute;blicas de jugadores. Es una <strong>beta</strong>: el bot&iacute;n de jefes y la alarma dentro de mazmorras y bandas todav&iacute;a se est&aacute;n confirmando en el juego real.</p>

@@ -398,7 +398,7 @@ function R.ChatLine(contract, L, linkFor)
   end
   local reserves = {}
   for _, reserve in ipairs(contract.reserves or {}) do
-    local who = reserve.owner and (reserve.owner .. " → ") or ""
+    local who = reserve.owner and (reserve.owner .. " > ") or ""
     local label = (reserve.kind == "soft" and "SR " or "HR ") .. who
     local link = linkFor and linkFor(reserve)
     reserves[#reserves + 1] = { plain = label .. reserve.item, linked = type(link) == "string" and (label .. link) or nil }
@@ -411,7 +411,7 @@ function R.ChatLine(contract, L, linkFor)
     for i, reserve in ipairs(reserves) do
       all[#all + 1] = (i <= links and reserve.linked) or reserve.plain
     end
-    return L.CHAT_PREFIX .. " " .. table.concat(all, " · ") .. ". " .. L.CHAT_ASK
+    return L.CHAT_PREFIX .. " " .. (#all > 0 and (table.concat(all, " · ") .. ". ") or "") .. L.CHAT_ASK
   end
   for links = #reserves, 1, -1 do
     local line = build(links)

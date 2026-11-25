@@ -486,7 +486,9 @@ function PT.Refresh(page)
 
   local active = record and Memory.ActiveTag(record)
   for _, b in ipairs(page.tagButtons) do
-    b:SetText(SL.Players:TagLabel(b.kind, 13))
+    local category = Memory.TAG_CATEGORY[b.kind]
+    -- plain text: red or orange words cannot be read on the game's red buttons (seen in the real client)
+    b:SetText("|T" .. T.category[category].icon .. ":13:13|t " .. L["CAT_" .. string.upper(category)])
     if name then
       b:Enable()
     else
