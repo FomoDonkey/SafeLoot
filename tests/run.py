@@ -189,6 +189,17 @@ run_spec("tests/specs/lootbook.lua")
 run_spec("tests/specs/lootpack.lua", pack=True)
 run_spec("tests/specs/players.lua")
 run_spec("tests/specs/demo.lua", pack=True)
+run_spec("tests/specs/audit4.lua", pack=True)
+run_spec("tests/specs/store_failure.lua", "SafeLootDB = { players = { ['Krag Hierro'] = { events = { { kind = 'tag_ninja', t = SIM.now } } } }, settings = setmetatable({}, { __newindex = function() error('damaged') end }) }")
+# the game's xpcall passes extra arguments on (plain Lua 5.1 does not): the same scenarios through that path
+GAME_XPCALL = """local real = xpcall
+function xpcall(f, handler, ...)
+  local n, args = select('#', ...), { ... }
+  if n == 0 then return real(f, handler) end
+  return real(function() return f(unpack(args, 1, n)) end, handler)
+end"""
+run_spec("tests/specs/scenarios.lua", GAME_XPCALL)
+run_spec("tests/specs/audit4.lua", GAME_XPCALL, pack=True)
 run_spec("tests/specs/minimap.lua")
 run_spec("tests/specs/minimap_hidden.lua", "SafeLootDB = { settings = { showMinimap = false, minimapAngle = 'x' } }")
 run_spec("tests/specs/locale_switch.lua", "SIM.locale = 'enUS'")

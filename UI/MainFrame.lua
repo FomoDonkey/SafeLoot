@@ -544,6 +544,7 @@ function MF:Open(key, silent)
     self:Build()
   end
   self.tab = key or self.tab or "contract"
+  self.fresh = true -- a tab just opened starts at the top; a refresh stays where it was
   for i, name in ipairs(TABS) do
     self.pages[name]:SetShown(name == self.tab)
     if name == self.tab and PanelTemplates_SetTab then
@@ -571,27 +572,32 @@ function MF:Refresh()
   if self.tab == "contract" then
     refreshContractTab(self.pages.contract)
   elseif self.tab == "journal" then
-    self.pages.journal.List:Set(journalItems())
+    self.pages.journal.List:Set(journalItems(), self.fresh)
   elseif self.tab == "players" then
     SL.PlayersTab.Refresh(self.pages.players)
   elseif self.tab == "help" then
-    self.pages.help.List:Set(helpItems())
+    self.pages.help.List:Set(helpItems(), self.fresh)
   end
+  self.fresh = nil
 end
 
 function MF:OnEnable()
-  SL:On("CONTRACT_CHANGED", self, function()
-    MF:Refresh()
-  end)
-  SL:On("MEMORY_CHANGED", self, function()
-    MF:Refresh()
-  end)
-  SL:On("RUN_FINISHED", self, function()
-    MF:Refresh()
-  end)
-  SL:On("CATALOG_CHANGED", self, function()
-    MF:Refresh()
-  end)
+  -- each message only redraws the tab that shows it (while items load, CATALOG_CHANGED comes three times a second)
+  local function refreshIf(...)
+    local tabs = {}
+    for _, key in ipairs({ ... }) do
+      tabs[key] = true
+    end
+    return function()
+      if tabs[MF.tab] then
+        MF:Refresh()
+      end
+    end
+  end
+  SL:On("CONTRACT_CHANGED", self, refreshIf("contract", "journal"))
+  SL:On("MEMORY_CHANGED", self, refreshIf("players"))
+  SL:On("RUN_FINISHED", self, refreshIf("journal", "players"))
+  SL:On("CATALOG_CHANGED", self, refreshIf("contract"))
   -- Shift-click an item into the reserve box while it has the focus
   API.HookInsertLink(function(link)
     local box = MF.linkTarget

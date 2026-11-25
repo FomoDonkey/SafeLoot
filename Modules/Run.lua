@@ -7,6 +7,8 @@ local Run = SL:NewModule("Run")
 SL.Run = Run
 local API, UI, T, L = SL.API, SL.UI, SL.Theme, SL.L
 
+Run.MAX_DROPS = 300
+
 function Run:Current()
   return SL.char and SL.char.run or nil
 end
@@ -57,6 +59,19 @@ function Run:LogDrop(key, item, winner, winnerClass)
   local run = self:Current()
   if not run then
     return
+  end
+  if run.drops[key] == nil then
+    -- a session can last a whole day: the oldest drop makes room
+    local n, oldest = 0, nil
+    for k, drop in pairs(run.drops) do
+      n = n + 1
+      if not oldest or (drop.t or 0) < (run.drops[oldest].t or 0) then
+        oldest = k
+      end
+    end
+    if n >= Run.MAX_DROPS then
+      run.drops[oldest] = nil
+    end
   end
   run.drops[key] = { item = item, winner = winner, class = winnerClass, t = API.Now() }
 end
@@ -146,8 +161,10 @@ function Run:SummaryLines(run)
 end
 
 local function stripCodes(text)
-  return (text:gsub("|T.-|t", ""):gsub("|cn[%w_]+:", ""):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("|H.-|h", ""):gsub("|h", ""))
+  return (text:gsub("|T.-|t", ""):gsub("|A.-|a", ""):gsub("|cn[%w_]+:", ""):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
+    :gsub("|H.-|h", ""):gsub("|h", ""))
 end
+Run.StripCodes = stripCodes
 
 function Run:ShowSummary(run)
   if not self.summary then
@@ -252,7 +269,7 @@ function Run:Check()
   end
   local place = API.PlaceName()
   if inInstance then
-    if run and run.instance and run.place ~= place then
+    if run and run.instance and place and run.place ~= place then -- (no name yet while loading: not another place)
       self:Finish() -- a different instance: the previous run is over
       run = nil
     end

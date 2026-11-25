@@ -55,7 +55,7 @@ local function itemRows(mapID, bossKey, filter)
   local rows = {}
   for _, entry in ipairs(SL.Catalog:Items(mapID, bossKey)) do
     if not filter or (entry.info and matches(entry.info.name, filter)) then
-      rows[#rows + 1] = { kind = "item", id = entry.id, info = entry.info, seen = entry.seen }
+      rows[#rows + 1] = { kind = "item", id = entry.id, info = entry.info, seen = entry.seen, heard = entry.heard }
     end
   end
   table.sort(rows, QUALITY_ORDER)
@@ -122,7 +122,7 @@ function LP:InitRow(row, data)
     local info = data.info
     if info and info.name then
       text = "      |T" .. (info.icon or QUESTION) .. ":16:16|t " .. (info.link or info.name)
-        .. (data.seen and "" or ("  " .. T.Paint(L.PICKER_UNSEEN, T.color.gray)))
+        .. (data.seen and "" or ("  " .. T.Paint(data.heard and L.PICKER_HEARD or L.PICKER_UNSEEN, T.color.gray)))
     else
       text = "      |T" .. ((info and info.icon) or QUESTION) .. ":16:16|t " .. T.Paint(L.PICKER_LOADING, T.color.gray)
     end
@@ -159,7 +159,7 @@ function LP:OnRowEnter(row, data)
   if data.kind == "item" then
     UI.ItemTooltip(row, data.id, data.info and data.info.link)
     if not data.seen and GameTooltip and GameTooltip.AddLine then
-      GameTooltip:AddLine(L.PICKER_UNSEEN_TIP, T.color.gray.r, T.color.gray.g, T.color.gray.b, true)
+      GameTooltip:AddLine(data.heard and L.PICKER_HEARD_TIP or L.PICKER_UNSEEN_TIP, T.color.gray.r, T.color.gray.g, T.color.gray.b, true)
       GameTooltip:Show()
     end
   elseif data.kind == "instance" and GameTooltip then
@@ -313,10 +313,13 @@ function LP:Refresh()
   end
   local typed = f.Search:GetText() or ""
   local filter = typed ~= "" and Rules.Normalize(typed) or nil
+  local shown = tostring(self.view) .. "|" .. tostring(self.mapID) .. "|" .. typed
+  local top = self.shown ~= shown -- items that finish loading must not move the list while you read it
+  self.shown = shown
   if self.view == "loot" and self.mapID then
-    f.List:Set(lootRows(self.mapID, filter))
+    f.List:Set(lootRows(self.mapID, filter), top)
   else
-    f.List:Set(instanceRows(filter))
+    f.List:Set(instanceRows(filter), top)
   end
 end
 

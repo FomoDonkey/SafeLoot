@@ -77,10 +77,17 @@ function LW:ResetExceptions()
 end
 
 function LW:OnDrop(_, encounterID, lootListKey)
+  if API.IsSecret(encounterID) or API.IsSecret(lootListKey) then
+    return -- never compared, joined or used as a key
+  end
+  -- read once for everybody: in a raid this event comes with every one of the 40 rolls
+  local info = API.LootDrop(encounterID, lootListKey)
+  if info then
+    SL:Fire("LOOT_DROP", encounterID, info)
+  end
   if not SL.settings.detector then
     return
   end
-  local info = API.LootDrop(encounterID, lootListKey)
   if SL.Diagnostics then
     SL.Diagnostics:Observe("loot_history_drop", {
       ok = info ~= nil, rolls = info and info.rollInfos and #info.rollInfos or 0,
@@ -97,8 +104,10 @@ function LW:OnDrop(_, encounterID, lootListKey)
   local contract = SL.Contract:Get()
   for _, roll in ipairs(info.rollInfos) do
     -- inside instances the game may hide identity as "secret" values: such rolls are skipped, never compared
-    if type(roll) == "table" and not API.IsSecret(roll.isSelf) and not roll.isSelf
-      and not API.IsSecret(roll.playerName) and not API.IsSecret(roll.playerClass) and not API.IsSecret(roll.state) then
+    -- (the state first: only Need rolls are ever judged, and most are not)
+    if type(roll) == "table" and not API.IsSecret(roll.state) and Judge.IsNeed(roll.state)
+      and not API.IsSecret(roll.isSelf) and not roll.isSelf
+      and not API.IsSecret(roll.playerName) and not API.IsSecret(roll.playerClass) then
       local key = tostring(encounterID) .. ":" .. tostring(lootListKey) .. ":" .. tostring(roll.playerName) .. ":" .. tostring(roll.state)
       if not self.judged[key] then
         self:Remember(key)
@@ -193,6 +202,6 @@ function LW:OnEnable()
   SL:RegisterEvent("LOOT_HISTORY_UPDATE_DROP", self, self.OnDrop)
   SL:RegisterEvent("CHAT_MSG_LOOT", self, self.OnLootChat)
   SL:On("RUN_STARTED", self, function()
-    LW.judged = {}
+    LW.judged, LW.judgedCount = {}, 0
   end)
 end

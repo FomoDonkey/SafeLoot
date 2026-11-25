@@ -2,7 +2,9 @@
 -- The dungeons, raids and bosses come from the Forever client data (Data/Instances.lua, generated). Forever has no
 -- Encounter Journal, so nothing in the game says what a boss drops: the items are LEARNED from real drops (yours
 -- and those of other SafeLoot users in your group) and kept in SafeLootDB.loot:
---   loot = { [mapID] = { [bossKey] = { [itemID] = lastSeen } } }   bossKey = the boss's first encounter ID, or
+--   loot = { [mapID] = { [bossKey] = { [itemID] = lastSeen } } }   lastSeen > 0: you saw it drop; < 0: only heard
+--   from a SafeLoot user of your group (never shared again: a wrong report cannot travel from player to player).
+--   bossKey = the boss's first encounter ID, or
 --   OTHER (0) for items seen in the instance that no boss could be matched to. Negative keys are bosses the client's
 --   encounter list does not have (rares): they come from the optional data pack (SafeLoot_LootData).
 local _, SL = ...
@@ -75,7 +77,7 @@ function B.AddPack(index, pack)
   if type(pack) ~= "table" or type(pack.loot) ~= "table" then
     return 0
   end
-  index.pack, index.credit = {}, type(pack.credit) == "string" and pack.credit or nil
+  index.pack, index.packIDs, index.credit = {}, {}, type(pack.credit) == "string" and pack.credit or nil
   local used = 0
   for mapID, byBoss in pairs(pack.loot) do
     local inst = index.byMap[mapID]
@@ -94,30 +96,42 @@ function B.AddPack(index, pack)
         boss.order = #inst.bosses + 1
         inst.bosses[#inst.bosses + 1] = boss
       end
-      local known = {}
+      local known, all = {}, {}
       for key, ids in pairs(byBoss) do
         if type(ids) == "table" and (key == B.OTHER or B.Boss(index, mapID, key)) then
           known[key] = {}
           for _, id in ipairs(ids) do
             if isID(id) then
               known[key][id] = true
+              all[id] = true
               used = used + 1
             end
           end
         end
       end
-      index.pack[mapID] = known
+      index.pack[mapID], index.packIDs[mapID] = known, all
     end
   end
   return used
 end
 
--- Everything known for a boss: { { id, seen } }. seen = it really dropped in Forever (you or someone in your group
--- saw it); otherwise it only comes from the data pack.
+-- Really seen: you saw it, or someone in your group did and the data pack says it belongs to that instance.
+-- Something only heard, that nothing else backs up, is not proof of anything.
+local function proven(index, mapID, id, lastSeen)
+  if lastSeen >= 0 then
+    return true
+  end
+  local pack = index.packIDs and index.packIDs[mapID]
+  return pack ~= nil and pack[id] == true
+end
+
+-- Everything known for a boss: { { id, seen, heard } }. seen = it really dropped in Forever; heard = only a SafeLoot
+-- user of your group says so; neither = it only comes from the data pack.
 function B.Known(book, index, mapID, bossKey)
   local list, done = {}, {}
   for _, id in ipairs(B.Items(book, mapID, bossKey)) do
-    list[#list + 1] = { id = id, seen = true }
+    local seen = proven(index, mapID, id, book[mapID][bossKey][id])
+    list[#list + 1] = { id = id, seen = seen, heard = not seen or nil }
     done[id] = true
   end
   local pack = index.pack and index.pack[mapID] and index.pack[mapID][bossKey]
@@ -136,10 +150,11 @@ end
 function B.Totals(book, index, mapID)
   local ids, total, seen = {}, 0, 0
   for _, items in pairs(book and book[mapID] or {}) do
-    for id in pairs(items) do
+    for id, lastSeen in pairs(items) do
       if not ids[id] then
         ids[id] = true
-        total, seen = total + 1, seen + 1
+        total = total + 1
+        seen = seen + (proven(index, mapID, id, lastSeen) and 1 or 0)
       end
     end
   end
@@ -205,8 +220,9 @@ local function count(items)
   return n
 end
 
--- Returns true when the item is new for that boss. Unknown instances / bosses and bad IDs are refused.
--- shared = it comes from another player: it only fills free room and never pushes out what you saw yourself.
+-- Returns true when the item is new for that boss (or now seen by you). Unknown instances / bosses and bad IDs are
+-- refused. shared = it comes from another player: it only fills free room, never pushes out or moves what you saw
+-- yourself, and gives its place up to it.
 function B.Learn(book, index, mapID, bossKey, itemID, t, shared)
   if type(book) ~= "table" or not isID(itemID) or not index.byMap[mapID] then
     return false
@@ -218,32 +234,41 @@ function B.Learn(book, index, mapID, bossKey, itemID, t, shared)
   book[mapID] = byBoss
   if bossKey == B.OTHER then
     for key, items in pairs(byBoss) do
-      if key ~= B.OTHER and items[itemID] then
+      if key ~= B.OTHER and items[itemID] and (shared or items[itemID] >= 0) then
         return false -- already known under its boss
       end
     end
-  elseif byBoss[B.OTHER] then
+  elseif byBoss[B.OTHER] and byBoss[B.OTHER][itemID] then
+    if shared and byBoss[B.OTHER][itemID] >= 0 then
+      return false -- what you saw stays where you saw it
+    end
     byBoss[B.OTHER][itemID] = nil -- now we know which boss drops it
   end
   local items = byBoss[bossKey] or {}
   byBoss[bossKey] = items
-  local isNew = items[itemID] == nil
-  if isNew and count(items) >= B.MAX_PER_BOSS then
+  local old = items[itemID]
+  if old == nil and count(items) >= B.MAX_PER_BOSS then
     if shared then
       return false
     end
-    local oldestID, oldestT
+    -- what was only heard goes first, then the oldest
+    local outID, outMine, outAge
     for id, seen in pairs(items) do
-      if not oldestT or seen < oldestT then
-        oldestID, oldestT = id, seen
+      local mine, age = seen >= 0, math.abs(seen)
+      if not outID or (outMine and not mine) or (mine == outMine and age < outAge) then
+        outID, outMine, outAge = id, mine, age
       end
     end
-    items[oldestID] = nil
+    items[outID] = nil
   end
-  if isNew or not shared then
-    items[itemID] = t or items[itemID] or 0 -- (a shared copy never refreshes the date of what you saw)
+  if shared then
+    if old == nil then
+      items[itemID] = -math.max(math.abs(t or 0), 1)
+    end
+    return old == nil
   end
-  return isNew
+  items[itemID] = math.abs(t or old or 0)
+  return old == nil or old < 0
 end
 
 -- Item IDs known for a boss (ascending ID; the UI sorts by name once the names are loaded).
@@ -285,7 +310,7 @@ function B.Validate(book, index)
           end
         else
           for id, seen in pairs(items) do
-            if not isID(id) or type(seen) ~= "number" then
+            if not isID(id) or type(seen) ~= "number" or seen ~= seen then
               items[id] = nil
             end
           end
@@ -295,8 +320,8 @@ function B.Validate(book, index)
   end
   for _, orphan in ipairs(orphans) do
     for id, seen in pairs(orphan[2]) do
-      if isID(id) and type(seen) == "number" then
-        B.Learn(book, index, orphan[1], B.OTHER, id, seen)
+      if isID(id) and type(seen) == "number" and seen == seen then
+        B.Learn(book, index, orphan[1], B.OTHER, id, seen, seen < 0)
       end
     end
   end
@@ -305,7 +330,7 @@ end
 
 -- Sharing with other SafeLoot users in the group (addon messages, never chat) -----------------------------------
 -- query:  "1|LQ|<mapID>"
--- answer: "1|LB|<mapID>|<bossKey>:<id>,<id>;<bossKey>:<id>"  (several messages if needed)
+-- answer: "1|LB|<mapID>|<bossKey>:<id>,<id>;<bossKey>:<id>"  (several messages if needed; only what you saw yourself)
 function B.Query(mapID)
   return "1|LQ|" .. tostring(mapID)
 end
@@ -336,17 +361,19 @@ function B.Encode(book, mapID)
   end
   for _, key in ipairs(keys) do
     for _, id in ipairs(B.Items(book, mapID, key)) do
-      local piece
-      if openKey == key then
-        piece = "," .. id
-      else
-        piece = (text ~= prefix and ";" or "") .. key .. ":" .. id
+      if byBoss[key][id] >= 0 then
+        local piece
+        if openKey == key then
+          piece = "," .. id
+        else
+          piece = (text ~= prefix and ";" or "") .. key .. ":" .. id
+        end
+        if #text + #piece > B.MAX_BYTES then
+          flush()
+          piece = key .. ":" .. id
+        end
+        text, openKey = text .. piece, key
       end
-      if #text + #piece > B.MAX_BYTES then
-        flush()
-        piece = key .. ":" .. id
-      end
-      text, openKey = text .. piece, key
     end
   end
   flush()

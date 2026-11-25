@@ -289,8 +289,10 @@ function CreateScrollBoxListLinearView()
   return view
 end
 ScrollUtil = { InitScrollBoxListWithScrollBar = function(box, bar, view) box._view = view end }
-function CreateDataProvider()
+function CreateDataProvider(tbl)
+  SIM.providers = (SIM.providers or 0) + 1
   local p = { items = {} }
+  for i, item in ipairs(tbl or {}) do p.items[i] = item end
   function p:Flush() self.items = {} end
   function p:Insert(item) table.insert(self.items, item) end
   return p

@@ -14,7 +14,10 @@ local PREFIX = "SafeLoot"
 local MAX_INFO = 1500
 local MAX_PENDING = 60   -- items asked to the server at the same time
 local RETRY = 15         -- seconds before asking again for an item that did not answer
+local FORGET = 60        -- seconds after which an item that never answered is no longer waited for
+local MAX_FROM_SENDER = 600 -- item IDs accepted from one player per session: nobody can fill your book
 local infoCache, infoCount, pending, failed = {}, 0, {}, {}
+local waiting, waitingAt = 0, nil
 
 local function observe(key, detail)
   if SL.Diagnostics then
@@ -23,6 +26,7 @@ local function observe(key, detail)
 end
 
 function Cat:OnInitialize()
+  self.learned, self.learnedCount, self.answering, self.received = {}, 0, {}, {}
   self.index = Book.Index(SL.InstanceData, SL.language)
   if type(SL.db.loot) ~= "table" then
     SL.db.loot = {}
@@ -100,21 +104,11 @@ function Cat:Learn(mapID, bossKey, itemID, shared)
   return isNew
 end
 
--- 1. Group loot history ------------------------------------------------------------------------------------------
-function Cat:OnDrop(_, encounterID, lootListKey)
-  if API.IsSecret(encounterID) or API.IsSecret(lootListKey) then
-    return
-  end
-  local info = API.LootDrop(encounterID, lootListKey)
-  if type(info) == "table" then
-    self:LearnDrop(encounterID, info.itemHyperlink)
-  end
-end
-
+-- 1. Group loot history (read once, by the Detector: LootWatch fires LOOT_DROP) -----------------------------------
 function Cat:LearnDrop(encounterID, link)
   local itemID = API.ItemIDFromLink(link)
-  if not itemID then
-    return
+  if not itemID or self.learned[link] == encounterID then
+    return -- (the same drop is announced again with every roll: up to 40 times in a raid)
   end
   local here = API.InstanceMapID()
   local mapID, bossKey = Book.Place(self.index, encounterID, here)
@@ -128,6 +122,13 @@ function Cat:LearnDrop(encounterID, link)
   observe("loot_book_drop", { encounter = encounterID, map = here, boss = bossKey ~= nil and bossKey ~= Book.OTHER })
   if mapID then
     self:Learn(mapID, bossKey, itemID)
+    if bossKey ~= Book.OTHER then
+      self.learnedCount = self.learnedCount + 1
+      if self.learnedCount > 100 then
+        self.learned, self.learnedCount = {}, 1
+      end
+      self.learned[link] = encounterID
+    end
   end
 end
 
@@ -168,25 +169,53 @@ function Cat:ItemInfo(itemID)
     return info
   end
   if not failed[itemID] then
-    local now, waiting = API.Clock(), 0
-    for _, asked in pairs(pending) do
-      if now - asked < RETRY then
-        waiting = waiting + 1
+    local now = API.Clock()
+    if waitingAt ~= now then -- counted once per frame, not once per item
+      waiting, waitingAt = 0, now
+      for id, asked in pairs(pending) do
+        if now - asked < RETRY then
+          waiting = waiting + 1
+        elseif now - asked > FORGET then
+          pending[id] = nil
+        end
       end
     end
     local asked = pending[itemID]
     -- a few at a time: a whole raid at once would flood the server. The rest is asked as answers arrive.
     if (not asked or now - asked >= RETRY) and waiting < MAX_PENDING then
       pending[itemID] = now
+      waiting = waiting + 1
+      self:ListenItems(true)
       API.RequestItem(itemID)
     end
   end
   return info
 end
 
+-- The game announces every item it loads for anyone (bags, auctions, other add-ons): these events are only listened to
+-- while we are waiting for an answer. GetItemInfo answers through the first one, RequestLoadItemDataByID through the
+-- second (Forever UI source).
+function Cat:ListenItems(on)
+  if on == self.listening then
+    return
+  end
+  self.listening = on
+  for _, event in ipairs({ "GET_ITEM_INFO_RECEIVED", "ITEM_DATA_LOAD_RESULT" }) do
+    if on then
+      SL:RegisterEvent(event, self, self.OnItemInfo)
+    else
+      SL:UnregisterEvent(event, self)
+    end
+  end
+end
+
 function Cat:OnItemInfo(_, itemID, success)
   if type(itemID) == "number" and not API.IsSecret(itemID) and pending[itemID] then
     pending[itemID] = nil
+    waitingAt = nil
+    if next(pending) == nil then
+      self:ListenItems(false)
+    end
     if not API.IsSecret(success) and success == false then
       failed[itemID] = true -- the server does not have this item: not asked again, not shown
     end
@@ -236,7 +265,8 @@ function Cat:Answer(mapID)
     return
   end
   local messages = Book.Encode(SL.db.loot, mapID)
-  if #messages == 0 or not SL:Cooldown("loot-answer-" .. mapID, 60) then
+  -- once a minute per dungeon and never two in a row: nobody can make you flood the group by asking
+  if #messages == 0 or not SL:Cooldown("loot-answer-" .. mapID, 60) or not SL:Cooldown("loot-answer", 5) then
     return
   end
   local chatType = API.GroupChatType()
@@ -245,7 +275,9 @@ function Cat:Answer(mapID)
     -- spaced out: the game throttles bursts of addon messages
     if C_Timer and C_Timer.After then
       C_Timer.After(0.4 * i, function()
-        API.SendAddon(PREFIX, message, chatType)
+        if API.InGroup() then -- (you may have left meanwhile)
+          API.SendAddon(PREFIX, message, chatType)
+        end
       end)
     else
       API.SendAddon(PREFIX, message, chatType)
@@ -267,7 +299,12 @@ function Cat:OnAddonMessage(_, prefix, message, channel, sender)
     -- a short random wait so that not everybody answers at the same moment
     local wait = 0.5 + math.random() * 1.5
     if C_Timer and C_Timer.After then
+      if self.answering[asked] then
+        return -- one answer to this question is already on its way
+      end
+      self.answering[asked] = true
       C_Timer.After(wait, function()
+        Cat.answering[asked] = nil
         SL.SafeCall("loot answer", Cat.Answer, Cat, asked)
       end)
     else
@@ -276,14 +313,22 @@ function Cat:OnAddonMessage(_, prefix, message, channel, sender)
     return
   end
   local mapID, entries = Book.Decode(self.index, message)
-  if mapID then
+  -- only about where the group is or is going, and not without limit from one player
+  if mapID and (mapID == self:Destination() or mapID == self:Here()) then
     local learned = 0
+    local from = Names.Short(sender) or "?"
+    local taken = self.received[from] or 0
     for _, entry in ipairs(entries) do
+      if taken >= MAX_FROM_SENDER then
+        break
+      end
+      taken = taken + 1
       -- shared knowledge only fills free room: it never pushes out what you saw yourself
       if self:Learn(mapID, entry[1], entry[2], true) then
         learned = learned + 1
       end
     end
+    self.received[from] = taken
     observe("loot_book_sync", { received = #entries, learned = learned })
   end
 end
@@ -304,11 +349,10 @@ end
 function Cat:OnEnable()
   self:LoadPack()
   API.RegisterPrefix(PREFIX)
-  SL:RegisterEvent("LOOT_HISTORY_UPDATE_DROP", self, self.OnDrop)
+  SL:On("LOOT_DROP", self, function(_, encounterID, info)
+    Cat:LearnDrop(encounterID, info.itemHyperlink)
+  end)
   SL:RegisterEvent("LOOT_OPENED", self, self.OnLootOpened)
-  -- GetItemInfo answers through the first event, RequestLoadItemDataByID through the second (Forever UI source)
-  SL:RegisterEvent("GET_ITEM_INFO_RECEIVED", self, self.OnItemInfo)
-  SL:RegisterEvent("ITEM_DATA_LOAD_RESULT", self, self.OnItemInfo)
   SL:RegisterEvent("CHAT_MSG_ADDON", self, self.OnAddonMessage)
   local function zone()
     SL:Debounce("catalog-zone", 1, function()

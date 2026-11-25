@@ -34,6 +34,9 @@ function W:Describe(changes, reference, state)
 end
 
 function W:Check(reason)
+  if not API.InGroup() then
+    return -- (the check was waiting and the group is over)
+  end
   local state = API.LootState()
   if SL.Diagnostics then
     SL.Diagnostics:Observe("loot_method_read", { ok = state ~= nil, method = state and state.method, reason = reason })

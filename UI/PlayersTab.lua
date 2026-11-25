@@ -41,13 +41,32 @@ local function recentPlayers()
   return recent
 end
 
+-- Names without accents or capitals, for searching and sorting: worked out once per name (with 2000 players, sorting
+-- A-Z used to work it out 40000 times).
+local folded, foldedCount = {}, 0
+local function fold(name)
+  local f = folded[name]
+  if not f then
+    if foldedCount >= 5000 then
+      folded, foldedCount = {}, 0
+    end
+    f = Rules.Normalize(name)
+    folded[name] = f
+    foldedCount = foldedCount + 1
+  end
+  return f
+end
+
+local NOTHING = Memory.Summary(nil)
+
 -- Every known player: { name, record, summary, category, inGroup }, unsorted.
 function PT.All()
   local now, days = API.Now(), SL.settings.memoryDays
-  local list = Memory.List(SL.db.players, now, days)
-  local byName = {}
-  for _, entry in ipairs(list) do
-    byName[entry.name] = entry
+  local list, byName = {}, {}
+  for name, record in pairs(SL.db.players) do
+    local entry = { name = name, record = record, summary = record.events[1] and Memory.Summary(record, now, days) or NOTHING }
+    list[#list + 1] = entry
+    byName[name] = entry
   end
   for name, info in pairs(recentPlayers()) do
     local entry = byName[name]
@@ -56,7 +75,7 @@ function PT.All()
       entry.record.class = entry.record.class or info.class
     else
       list[#list + 1] = {
-        name = name, record = { class = info.class, events = {}, last = info.last }, summary = Memory.Summary(nil),
+        name = name, record = { class = info.class, events = {}, last = info.last }, summary = NOTHING,
         recent = true, inGroup = info.inGroup,
       }
     end
@@ -72,7 +91,7 @@ local SORT = {
     return (a.record.last or 0) > (b.record.last or 0)
   end,
   name = function(a, b)
-    return Rules.Normalize(a.name) < Rules.Normalize(b.name)
+    return fold(a.name) < fold(b.name)
   end,
   times = function(a, b)
     if (a.record.seen or 0) ~= (b.record.seen or 0) then
@@ -95,7 +114,7 @@ function PT.List(category, filter)
     end
     local wanted
     if f then
-      wanted = Rules.Normalize(entry.name):find(f, 1, true) ~= nil
+      wanted = fold(entry.name):find(f, 1, true) ~= nil
     else
       wanted = category == nil or category == "all" or (category == "group" and entry.inGroup) or entry.category == category
     end
@@ -442,7 +461,10 @@ function PT.Refresh(page)
     b.Mark:SetShown(key == shown)
   end
   page.Sort:SetText(L["SORT_" .. string.upper(SORT[SL.settings.playerSort] and SL.settings.playerSort or "recent")])
-  page.List:Set(list)
+  -- back to the top only when what is listed is something else; choosing a player must not move the list
+  local view = shown .. "|" .. typed .. "|" .. tostring(SL.settings.playerSort)
+  page.List:Set(list, page.view ~= view)
+  page.view = view
   page.Empty:SetText(#list == 0 and T.Paint(counts.all == 0 and L.PLAYERS_EMPTY or (typed ~= "" and L.PLAYERS_NO_MATCH or L.CAT_EMPTY), T.color.gray) or "")
 
   local name = page.Target()

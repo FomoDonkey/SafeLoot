@@ -55,7 +55,7 @@ function SP:OnInitialize()
       SP:AddLanguage(category)
     else
       local key = option.key
-      local default = SL.settings[key]
+      local default = SL.Store.DEFAULTS.settings[key] -- (the value in use went here: "Defaults" restored nothing)
       local name = L["OPT_" .. key] or key
       local tooltip = L["OPT_" .. key .. "_TIP"]
       local isNumber = type(default) == "number"

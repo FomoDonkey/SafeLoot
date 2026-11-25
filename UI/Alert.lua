@@ -124,10 +124,12 @@ function Alert:Alarm(spec)
       SL.Diagnostics:Observe("center_warning", { ok = ok })
     end
   end
-  if s.alarmSound ~= false and (spec.severity or 0) >= 2 then
+  -- the warning itself is never held back; its noise is, so that nobody can make your game scream by switching the
+  -- loot method over and over
+  if s.alarmSound ~= false and (spec.severity or 0) >= 2 and SL:Cooldown("alarm-sound", 2) then
     T.Play("alarm")
   end
-  if s.alarmVoice and spec.voice then
+  if s.alarmVoice and spec.voice and SL:Cooldown("alarm-voice", 4) then
     SL.API.Speak(spec.voice)
   end
   SL:Print(T.Paint(spec.title, color) .. (spec.body and (" — " .. spec.body) or ""))
@@ -173,7 +175,8 @@ function Alert:HidePanel()
 end
 
 -- spec = { tone = "bad"|"warn"|"good"|"neutral", title, body, seconds, action = {label, fn} }
--- While a toast is on screen, new ones wait in a short queue (max 4) instead of replacing it.
+-- While a toast is on screen, new ones wait in a short queue (max 4) instead of replacing it. spec.key: only the
+-- newest of that kind waits. When the queue is full, a "bad" notice takes the place of the last one that is not.
 function Alert:Toast(spec)
   local toast = self.toast
   if not toast then
@@ -181,8 +184,21 @@ function Alert:Toast(spec)
   end
   if toast:IsShown() and (toast.remaining or 0) > 1 then
     self.queue = self.queue or {}
+    for i, waiting in ipairs(self.queue) do
+      if spec.key and waiting.key == spec.key then
+        self.queue[i] = spec
+        return
+      end
+    end
     if #self.queue < 4 then
       table.insert(self.queue, spec)
+    elseif spec.tone == "bad" then
+      for i = #self.queue, 1, -1 do
+        if self.queue[i].tone ~= "bad" then
+          self.queue[i] = spec
+          break
+        end
+      end
     end
     return
   end

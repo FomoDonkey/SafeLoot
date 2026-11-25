@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.5.2 — 2026-11-25 — performance, code and security audit
+Checked offline and against the Forever UI source; not yet seen in the real client.
+
+Security and privacy:
+- What you only heard from a SafeLoot user in your group is never shared again (a false report can no longer travel from player to player), is marked "reported in your group" until you see it drop or the loot lists back it up, never pushes out, moves or refreshes what you saw yourself, and is only taken about where the group is going, with a limit per player.
+- Asking for loot over and over can no longer make you flood the group.
+- A leader switching the loot method over and over warns every time but no longer makes the game scream; one writing rules line after line no longer fills the queue of notices, and a bad notice always gets in.
+- If the saved data cannot be read, the session starts empty but what was saved is NOT replaced (before, a failure there would have erased every mark and note at logout). Damaged saved data is cleaned field by field.
+- The self-test only counts its own echo and saves nothing about who sent it.
+
+Performance:
+- Lists are drawn once instead of once per line (the game lays the whole list out again for every inserted line).
+- Sorting 2000 players A-Z: 97 ms -> 5 ms; searching them: 7.8 -> 1.8 ms (offline benchmark, tests/bench.py).
+- The game's events create no garbage on their own; the events of items the game loads for others are only listened to while waiting for one; a drop is read once instead of twice, and learned once instead of with every roll; only the tab that shows a change is drawn again.
+
+Fixed:
+- Choosing a player (or an item finishing to load) no longer moves the list back to the top.
+- "Copy report" in the self-test window (it was promised and missing), without your character's name.
+- "Defaults" in the options restores the real defaults (it restored the values of the moment you logged in).
+- Adopting other rules forgets the "ok" answers to the old ones.
+- A loading screen without a place name no longer ends the run; a whole day in the same group keeps 300 drops at most.
+
 ## 0.5.1 — 2026-11-25 — seen in the real client
 - The arrow before a name was drawn as an empty box (the game's font does not have it): it is a ">" now, also in the published chat line.
 - The opinion buttons and the owner button can be read: no more red or purple words on red buttons.

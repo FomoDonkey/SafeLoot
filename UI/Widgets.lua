@@ -264,10 +264,14 @@ function UI.Movable(frame, key, defaultPoint)
   frame.RestorePosition = function(self)
     self:ClearAllPoints()
     local saved = SL.char and SL.char.positions[key]
-    if not saved and type(defaultPoint) == "function" then
-      defaultPoint(self)
+    if saved and not pcall(self.SetPoint, self, saved[1], UIParent, saved[2], saved[3], saved[4]) then
+      self:ClearAllPoints()
+      saved = nil -- an anchor the game does not know (damaged saved data): back to the first place
     elseif saved then
-      self:SetPoint(saved[1], UIParent, saved[2], saved[3], saved[4])
+      return
+    end
+    if type(defaultPoint) == "function" then
+      defaultPoint(self)
     else
       self:SetPoint(unpack(defaultPoint))
     end
@@ -356,12 +360,12 @@ function UI.List(parent, rowHeight, onInit, onClick, opts)
     box:SetDataProvider(list.provider)
     list.view = view
   end
-  list.Set = function(self, items)
+  -- A new provider with everything at once: inserting line by line makes the game lay the whole list out again for every
+  -- line (OnSizeChanged -> FullUpdate, Forever UI source). The scroll stays where it was unless top is true.
+  list.Set = function(self, items, top)
     if self.provider then
-      self.provider:Flush()
-      for _, item in ipairs(items) do
-        self.provider:Insert(item)
-      end
+      self.provider = CreateDataProvider(items)
+      self.box:SetDataProvider(self.provider, not top)
     end
   end
   return list

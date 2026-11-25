@@ -79,20 +79,20 @@ function API.PlaceName()
   return nil
 end
 
--- Unit tokens of everyone in the group (including "player").
+-- Unit tokens of everyone in the group (including "player"). Fixed lists, read only.
+local SOLO_UNITS, PARTY_UNITS, RAID_UNITS = { "player" }, { "player" }, {}
+for i = 1, 4 do
+  PARTY_UNITS[#PARTY_UNITS + 1] = "party" .. i
+end
+for i = 1, 40 do
+  RAID_UNITS[i] = "raid" .. i
+end
+
 function API.GroupUnits()
-  local units = { "player" }
   if API.InRaid() then
-    units = {}
-    for i = 1, 40 do
-      units[#units + 1] = "raid" .. i
-    end
-  elseif API.InGroup() then
-    for i = 1, 4 do
-      units[#units + 1] = "party" .. i
-    end
+    return RAID_UNITS
   end
-  return units
+  return API.InGroup() and PARTY_UNITS or SOLO_UNITS
 end
 
 function API.UnitExists(unit)

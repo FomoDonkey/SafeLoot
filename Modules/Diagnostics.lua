@@ -26,7 +26,7 @@ function D:Observe(key, detail)
   end
   local observed = db.diagnostics.observed
   local entry = observed[key]
-  if not entry then
+  if type(entry) ~= "table" or type(entry.count) ~= "number" then
     entry = { count = 0, first = API.Now() }
     observed[key] = entry
   end
@@ -137,14 +137,15 @@ function D:Run()
 end
 
 function D:OnAddonMessage(_, prefix, message, channel, sender)
-  if prefix ~= PREFIX or API.IsSecret(message) then
-    return
+  if prefix ~= PREFIX or API.IsSecret(message) or API.IsSecret(channel) or API.IsSecret(sender) then
+    return -- (a hidden value is never saved)
   end
-  local token = type(message) == "string" and message:match("^1|PING|(%d+)")
-  if token and token == D.pingToken and SL.db.diagnostics.report then
+  local token = type(message) == "string" and message:match("^1|PING|(%d+)$")
+  -- only our own echo counts, whoever else sends it
+  if token and token == D.pingToken and SL.db.diagnostics.report and SL.Names.IsMe(sender) then
     local report = SL.db.diagnostics.report
     report.addonEcho = report.addonEcho or {}
-    report.addonEcho[channel or "?"] = { ms = math.floor((API.Clock() - (D.pingAt or 0)) * 1000), sender = sender }
+    report.addonEcho[type(channel) == "string" and channel or "?"] = { ms = math.floor((API.Clock() - (D.pingAt or 0)) * 1000) }
     if self.window and self.window:IsShown() then
       self:ShowReport(report)
     end
@@ -156,7 +157,8 @@ local function mark(ok)
   return "|T" .. (ok and T.tex.ok or T.tex.bad) .. ":14:14|t "
 end
 
-function D:ReportLines(report)
+-- hideName: for the copy people paste in public (the character's name is nobody's business).
+function D:ReportLines(report, hideName)
   local lines = {}
   local function add(ok, text)
     lines[#lines + 1] = mark(ok) .. text
@@ -182,7 +184,7 @@ function D:ReportLines(report)
   add(#missingE == 0, string.format(L.DIAG_EVENTS, #EVENTS - #missingE, #EVENTS)
     .. (#missingE > 0 and (" — " .. table.concat(missingE, ", ")) or ""))
   add(report.lootMethod ~= nil, string.format(L.DIAG_LOOTMETHOD, report.lootMethod ~= nil and (L["METHOD_" .. report.lootMethod] or tostring(report.lootMethod)) or L.DIAG_NOVALUE))
-  add(report.me ~= nil and SL.Names.HasSurname(report.me), string.format(L.DIAG_NAME, tostring(report.me)))
+  add(report.me ~= nil and SL.Names.HasSurname(report.me), string.format(L.DIAG_NAME, hideName and (report.me and "***" or "-") or tostring(report.me)))
   add(report.addonSend and report.addonSend.ok, string.format(L.DIAG_ADDON_SEND, report.addonSend and report.addonSend.result or "?"))
   local echo = report.addonEcho and (report.addonEcho.WHISPER or next(report.addonEcho) and select(2, next(report.addonEcho)))
   add(echo ~= nil, echo and string.format(L.DIAG_ADDON_ECHO, echo.ms) or L.DIAG_ADDON_WAIT)
@@ -233,6 +235,19 @@ function D:ShowReport(report)
       D:Run()
     end)
     again:SetPoint("BOTTOMLEFT", 18, 16)
+    card.Copy = UI.Button(card, L.DIAG_COPY, 130, function()
+      local lines = D:ReportLines(SL.db.diagnostics.report or report, true)
+      for i, line in ipairs(lines) do
+        -- the marks are pictures: written out, so the copy says what failed
+        lines[i] = SL.Run.StripCodes((line:gsub("|T[^|]-ReadyCheck%-NotReady[^|]*|t", "[X]"):gsub("|T[^|]-ReadyCheck%-Ready[^|]*|t", "[OK]")))
+      end
+      table.insert(lines, 1, "SafeLoot " .. tostring(SL.version) .. " · " .. tostring(SL.language))
+      for _, err in ipairs(SafeLootDB and SafeLootDB.errors or {}) do
+        lines[#lines + 1] = "[X] " .. tostring(err.v) .. " x" .. tostring(err.count) .. " " .. tostring(err.text):match("^[^\n]*")
+      end
+      SL.Run:ShowCopyBox(table.concat(lines, "\n"))
+    end, L.DIAG_COPY, L.DIAG_COPY_TIP)
+    card.Copy:SetPoint("LEFT", again, "RIGHT", 8, 0)
     local ok = UI.Button(card, OKAY or "OK", 90, function()
       card:Hide()
     end)

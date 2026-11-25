@@ -29,6 +29,38 @@ function C:Save()
   end
 end
 
+-- Saved rules are only trusted field by field (a file edited by hand or cut by a crash).
+local FIELDS = { method = "number", threshold = "number", instance = "number", createdAt = "number", publishedAt = "number",
+  masterLooter = "string", leader = "string", source = "string", boe = "string" }
+function C.Sane(contract)
+  for field, kind in pairs(FIELDS) do
+    if type(contract[field]) ~= kind then
+      contract[field] = nil
+    end
+  end
+  if contract.needRule ~= "msos" and contract.needRule ~= "greed" and contract.needRule ~= "free" and contract.needRule ~= "upgrade" then
+    contract.needRule = nil
+  end
+  local accepted = {}
+  for name, t in pairs(type(contract.accepted) == "table" and contract.accepted or {}) do
+    if type(name) == "string" and type(t) == "number" then
+      accepted[name] = t
+    end
+  end
+  contract.accepted = accepted
+  local reserves = {}
+  for _, reserve in ipairs(type(contract.reserves) == "table" and contract.reserves or {}) do
+    if type(reserve) == "table" and type(reserve.item) == "string" then
+      reserve.itemID = type(reserve.itemID) == "number" and reserve.itemID or nil
+      reserve.owner = type(reserve.owner) == "string" and reserve.owner or nil
+      reserve.kind = reserve.kind == "soft" and "soft" or "hard"
+      reserves[#reserves + 1] = reserve
+    end
+  end
+  contract.reserves = reserves
+  return contract
+end
+
 function C:Restore()
   local saved = SL.char and SL.char.contract
   if type(saved) ~= "table" or type(saved.contract) ~= "table" then
@@ -36,19 +68,7 @@ function C:Restore()
   end
   local fresh = (API.Now() - (saved.t or 0)) < 4 * 3600
   if fresh and saved.leader and Names.Same(saved.leader, API.LeaderName()) then
-    self.current = saved.contract
-    self.current.accepted = type(self.current.accepted) == "table" and self.current.accepted or {}
-    local reserves = {}
-    for _, reserve in ipairs(type(self.current.reserves) == "table" and self.current.reserves or {}) do
-      if type(reserve) == "table" and type(reserve.item) == "string" then
-        reserve.itemID = type(reserve.itemID) == "number" and reserve.itemID or nil
-        reserves[#reserves + 1] = reserve
-      end
-    end
-    self.current.reserves = reserves
-    if type(self.current.instance) ~= "number" then
-      self.current.instance = nil
-    end
+    self.current = C.Sane(saved.contract)
     return true
   end
   SL.char.contract = nil
@@ -78,6 +98,9 @@ function C:Adopt(partial, source)
   end
   Rules.Apply(contract, partial)
   contract.source = source or contract.source
+  -- other rules than the ones the group said "ok" to: those answers no longer count
+  contract.publishedAt, contract.accepted = nil, {}
+  self.awaiting = false
   self.current = contract
   self:Save()
   SL.Run:Log("contract", { text = T.Paint(L.CONTRACT_ADOPTED, T.color.gold) .. " " .. self:Summary(contract) })
@@ -294,8 +317,11 @@ function C:OnGroupChat(event, text, sender)
     return
   end
   -- rules written by the leader -> suggestion (never applied silently)
-  local isLeader = event:find("LEADER") ~= nil or Names.Same(sender, API.LeaderName())
-  if isLeader and SL.settings.suggestRules then
+  if not SL.settings.suggestRules then
+    return
+  end
+  local isLeader = event:find("LEADER", 1, true) ~= nil or Names.Same(sender, API.LeaderName())
+  if isLeader then
     local partial = Rules.Parse(text, Names.Short(sender))
     if partial then
       self:Suggest(partial, string.format(L.SUGGEST_FROM_CHAT, Names.Short(sender) or "?"))
@@ -321,6 +347,7 @@ function C:Suggest(partial, origin)
   local preview = Rules.New("copied", API.Now())
   Rules.Apply(preview, partial)
   SL.Alert:Toast({
+    key = "suggest", -- one waiting at most: a leader writing line after line never fills the queue
     tone = "neutral",
     title = L.SUGGEST_TITLE,
     body = origin .. "\n" .. self:Summary(preview),

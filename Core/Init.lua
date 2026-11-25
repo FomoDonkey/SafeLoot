@@ -33,10 +33,12 @@ end
 function SL:ReportError(where, err)
   local db = SafeLootDB
   local text = tostring(where) .. ": " .. tostring(err)
-  if db then
-    db.errors = db.errors or {}
+  if type(db) == "table" then
+    if type(db.errors) ~= "table" then
+      db.errors = {} -- (damaged saved data must never break the error handler itself)
+    end
     local last = db.errors[#db.errors]
-    if last and last.text == text then
+    if type(last) == "table" and last.text == text then
       last.count = (last.count or 1) + 1
       last.t = time and time() or 0
     else
@@ -51,13 +53,25 @@ function SL:ReportError(where, err)
   end
 end
 
--- Portable: plain Lua 5.1 xpcall drops extra arguments, so they travel in a closure (keeps the traceback).
+-- Every event of the game goes through here, so it must not create garbage. The game's xpcall passes extra arguments
+-- on; plain Lua 5.1 (the tests) drops them, and there they travel in a closure (keeps the traceback).
 local unpackArgs = unpack or table.unpack
+local passesArguments = select(2, xpcall(function(value)
+  return value
+end, function(err)
+  return err
+end, 1)) == 1
+
 local function safeCall(where, fn, ...)
-  local n, args = select("#", ...), { ... }
-  local ok, err = xpcall(function()
-    return fn(unpackArgs(args, 1, n))
-  end, errorHandler)
+  local ok, err
+  if passesArguments then
+    ok, err = xpcall(fn, errorHandler, ...)
+  else
+    local n, args = select("#", ...), { ... }
+    ok, err = xpcall(function()
+      return fn(unpackArgs(args, 1, n))
+    end, errorHandler)
+  end
   if not ok then
     SL:ReportError(where, err)
   end
@@ -87,14 +101,19 @@ function SL:UnregisterEvent(event, owner)
   if not list then
     return
   end
-  for i = #list, 1, -1 do
-    if list[i].owner == owner then
-      table.remove(list, i)
+  -- a new list instead of removing in place: a handler may unregister itself while its event is being delivered, and
+  -- the ones after it must still run
+  local kept = {}
+  for _, h in ipairs(list) do
+    if h.owner ~= owner then
+      kept[#kept + 1] = h
     end
   end
-  if #list == 0 then
+  if #kept == 0 then
     handlers[event] = nil
     frame:UnregisterEvent(event)
+  else
+    handlers[event] = kept
   end
 end
 
@@ -248,6 +267,9 @@ function lifecycle:PLAYER_LOGIN()
     end
   end
   SL.enabled = true
+  if SL.Store.failed then
+    SL:Print(SL.L.STORE_FALLBACK)
+  end
   SL:Fire("ENABLED")
 end
 
@@ -310,7 +332,7 @@ end
 SL:RegisterCommand("debug", function()
   SL.debug = not SL.debug
   SL:Print("debug " .. (SL.debug and "ON" or "OFF"))
-end, "debug mode")
+end) -- (no help text: a tool for the author)
 
 -- Globals required by the TOC (addon compartment) and Bindings.xml.
 function SafeLoot_Toggle()

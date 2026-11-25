@@ -44,6 +44,7 @@ Spanish aliases also work: `prueba`, `alarma`, `marca`, `resumen`, `reglas`, `ju
 ## Development
 - The rules of the project are in [`docs/PROMPT_MAESTRO.md`](docs/PROMPT_MAESTRO.md).
 - Offline checks (Lua 5.1 with a simulated client): `uv run --with lupa python tests/run.py`
+- Offline benchmark of the hot paths, to compare two versions: `uv run --with lupa python tests/bench.py`
 - Install into the game (copies and verifies the files): `python tools/install.py`
 
 ## License
