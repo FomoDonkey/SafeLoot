@@ -303,6 +303,21 @@ function UI.FormatDate(t)
   return date and date("%d-%m %H:%M", t) or tostring(t)
 end
 
+-- "today", "yesterday", "3 days ago": how long ago, in words.
+function UI.Ago(t)
+  if type(t) ~= "number" or t == 0 then
+    return ""
+  end
+  local L = SL.L
+  local days = math.floor((SL.API.Now() - t) / 86400)
+  if days <= 0 then
+    return L.AGO_TODAY
+  elseif days == 1 then
+    return L.AGO_YESTERDAY
+  end
+  return string.format(L.AGO_DAYS, days)
+end
+
 -- Scrolling list: WowScrollBoxList + MinimalScrollBar (verified templates), one Button row per element.
 -- onInit(row, data) fills a row; onClick(data, mouseButton, row); opts.build(row) adds widgets to a new row;
 -- opts.onEnter / opts.onLeave (row, data) for tooltips.

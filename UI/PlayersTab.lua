@@ -153,18 +153,7 @@ local function coloredName(name, class)
   return color and ("|c" .. (color.colorStr or T.Hex(color)) .. name .. "|r") or T.Paint(name, T.color.white)
 end
 
-local function ago(t)
-  if not t or t == 0 then
-    return ""
-  end
-  local days = math.floor((API.Now() - t) / 86400)
-  if days <= 0 then
-    return L.AGO_TODAY
-  elseif days == 1 then
-    return L.AGO_YESTERDAY
-  end
-  return string.format(L.AGO_DAYS, days)
-end
+local ago = UI.Ago
 
 local function togetherText(record)
   local n = record.seen or 0
@@ -370,19 +359,26 @@ function PT.Build(page)
   local notes = UI.Create("Frame", card, "InsetFrameTemplate")
   notes:SetPoint("TOPLEFT", 6, -176)
   notes:SetPoint("BOTTOMRIGHT", -6, 72)
-  page.Notes = UI.List(notes, 42, function(row, data)
+  -- Each row: what you wrote (or your mark, or what the addon saw) on up to two lines, and when in grey under it.
+  -- Hovering shows it whole, with the exact date and the place.
+  page.Notes = UI.List(notes, (SL.settings and SL.settings.largeText) and 56 or 46, function(row, data)
     row.Text:SetText(data.text)
+    row.When:SetText(data.when and data.when ~= "" and T.Paint(data.when, T.color.gray) or "")
     row.Remove:SetShown(data.index ~= nil)
   end, nil, {
     build = function(row)
       row.Text:ClearAllPoints()
-      row.Text:SetPoint("TOPLEFT", 4, -3)
-      row.Text:SetPoint("BOTTOMRIGHT", -20, 3)
+      row.Text:SetPoint("TOPLEFT", 4, -4)
+      row.Text:SetPoint("TOPRIGHT", -20, -4)
       row.Text:SetWordWrap(true)
       row.Text:SetJustifyV("TOP")
       if row.Text.SetMaxLines then
-        row.Text:SetMaxLines(3)
+        row.Text:SetMaxLines(2)
       end
+      row.When = UI.Text(row, "small", "", "LEFT")
+      row.When:SetPoint("TOPLEFT", row.Text, "BOTTOMLEFT", 0, -2)
+      row.When:SetPoint("TOPRIGHT", row.Text, "BOTTOMRIGHT", 0, -2)
+      row.When:SetWordWrap(false)
       local remove = CreateFrame("Button", nil, row)
       remove:SetSize(14, 14)
       remove:SetPoint("TOPRIGHT", -2, -4)
@@ -398,6 +394,19 @@ function PT.Build(page)
       end)
       UI.Tooltip(remove, L.NOTE_REMOVE)
       row.Remove = remove
+    end,
+    onEnter = function(row, data)
+      if not data.event or not GameTooltip then
+        return
+      end
+      local title, text, stamp = SL.MemoryHooks.EventDetail(data.event)
+      GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
+      GameTooltip:SetText(title, T.color.gold.r, T.color.gold.g, T.color.gold.b)
+      GameTooltip:AddLine(text, 1, 1, 1, true)
+      if stamp ~= "" then
+        GameTooltip:AddLine(stamp, T.color.gray.r, T.color.gray.g, T.color.gray.b, true)
+      end
+      GameTooltip:Show()
     end,
   })
 
@@ -495,7 +504,9 @@ function PT.Refresh(page)
       page.Detail:SetText(T.Paint(string.format(entry and L.PLAYER_NO_NOTES or L.NEW_PLAYER_HINT, name), T.color.gray))
     end
     for i = record and #record.events or 0, 1, -1 do
-      notes[#notes + 1] = { text = SL.MemoryHooks.EventText(record.events[i]), index = i, event = record.events[i] }
+      local event = record.events[i]
+      local text, when = SL.MemoryHooks.EventParts(event)
+      notes[#notes + 1] = { text = text, when = when, index = i, event = event }
     end
     if #notes == 0 then
       notes[1] = { text = T.Paint(L.NO_NOTES, T.color.gray) }

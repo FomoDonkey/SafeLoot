@@ -128,3 +128,24 @@ test("screenshot mode stops at once when combat starts, and by asking again", fu
   ok(not SL.Demo.running, "never in combat")
   SIM.combat = false
 end)
+
+test("the pictures are in English even if the game is not", function()
+  LOCALIZED_CLASS_NAMES_MALE = LOCALIZED_CLASS_NAMES_MALE or {}
+  local before = LOCALIZED_CLASS_NAMES_MALE.ROGUE
+  LOCALIZED_CLASS_NAMES_MALE.ROGUE = "Pícaro"
+  _G.ITEM_QUALITY2_DESC = "Poco común"
+  eq(SL.API.LocalizedClass("ROGUE"), "Pícaro")
+  SL.Demo:Begin()
+  eq(SL.API.LocalizedClass("ROGUE"), "Rogue")
+  eq(SL.API.QualityName(2), "Uncommon")
+  ok(contains(SL.Contract:GameStateLine(), "Uncommon"), SL.Contract:GameStateLine())
+  local texts = {}
+  for _, run in ipairs(SL.db.runs) do
+    for _, e in ipairs(run.events) do texts[#texts + 1] = e.text end
+  end
+  ok(contains(table.concat(texts, " "), "Rogue") and not contains(table.concat(texts, " "), "Pícaro"), "journal")
+  SL.Demo:End()
+  eq(SL.API.LocalizedClass("ROGUE"), "Pícaro", "the game's words are back")
+  eq(SL.API.QualityName(2), "Poco común")
+  LOCALIZED_CLASS_NAMES_MALE.ROGUE, _G.ITEM_QUALITY2_DESC = before, nil
+end)

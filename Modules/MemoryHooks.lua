@@ -18,17 +18,87 @@ local function summaryFor(name)
   return summary, record
 end
 
+-- One remembered thing in two parts: what it is, and when (grey). A note is only what you wrote, and a mark is only
+-- your mark: the zone you happened to be in and the exact time were noise there and cut the note itself (seen in the
+-- real client, 2026-11-28). Only what the addon saw keeps its place, because there it says where it happened. The
+-- full date and the place stay one hover away (MH.EventDetail).
+function MH.EventParts(event)
+  if type(event) ~= "table" then
+    return "", ""
+  end
+  local when = UI.Ago(event.t)
+  if event.kind == "note" then
+    return tostring(event.note or ""), when
+  end
+  local label = L["EVENT_" .. string.upper(tostring(event.kind))] or tostring(event.kind)
+  if Memory.MANUAL[event.kind] then
+    local category = T.category[Memory.TAG_CATEGORY[event.kind]]
+    return "|T" .. category.icon .. ":12:12|t " .. string.format(L.EVENT_YOUR_MARK, label), when
+  end
+  local tone = T.tone[(Memory.KINDS[event.kind] or {}).tone] or T.tone.neutral
+  local what = event.link or event.item
+  local main = "|T" .. tone.icon .. ":12:12|t " .. label .. (what and (" · " .. what) or "")
+  return main, (event.place and when ~= "") and (event.place .. " · " .. when) or (event.place or when)
+end
+
+-- One line for tooltips and notices: a note in quotes, then when in grey.
 local function eventText(event)
-  if not event then
+  if type(event) ~= "table" then
     return ""
   end
-  local text = L["EVENT_" .. string.upper(event.kind)] or event.kind
-  local where = event.place and (" · " .. event.place) or ""
-  local what = (event.link or event.item) and (" · " .. (event.link or event.item)) or ""
-  local note = event.note and (" · \"" .. event.note .. "\"") or ""
-  return text .. what .. where .. note .. " (" .. UI.FormatDate(event.t) .. ")"
+  local main, when = MH.EventParts(event)
+  if event.kind == "note" then
+    main = "\"" .. main .. "\""
+  end
+  return main .. (when ~= "" and ("  " .. T.Paint(when, T.color.gray)) or "")
 end
 MH.EventText = eventText
+
+-- Everything about one thing, for its hover: title, the whole text, and the exact date and place.
+function MH.EventDetail(event)
+  local main = MH.EventParts(event)
+  local title = event.kind == "note" and L.EVENT_NOTE or (L["EVENT_" .. string.upper(tostring(event.kind))] or tostring(event.kind))
+  local stamp = UI.FormatDate(event.t)
+  if event.place then
+    stamp = stamp ~= "" and (stamp .. " · " .. event.place) or event.place
+  end
+  return title, main, stamp
+end
+
+-- What to say about a remembered player under the big word: the newest thing the addon saw (still in memory) and the
+-- newest note you wrote. Your mark is the big word itself: repeating it under it said nothing.
+function MH.Highlights(record)
+  local lines = {}
+  local events = type(record) == "table" and record.events or {}
+  local now, days = API.Now(), SL.settings.memoryDays
+  local seen, note
+  for i = #events, 1, -1 do
+    local event = events[i]
+    local info = Memory.KINDS[event.kind]
+    if not seen and info and info.auto and info.tone ~= "neutral" and Memory.Alive(event, now, days) then
+      seen = event
+    end
+    if not note and event.kind == "note" then
+      note = event
+    end
+  end
+  if seen then
+    lines[#lines + 1] = eventText(seen)
+  end
+  if note then
+    lines[#lines + 1] = eventText(note)
+  end
+  return lines
+end
+
+-- The body of a notice about someone: the highlights, or your mark and when you set it if that is all there is.
+function MH.NoticeBody(record, summary)
+  local lines = MH.Highlights(record)
+  if #lines == 0 and summary and summary.latest then
+    lines[1] = eventText(summary.latest)
+  end
+  return table.concat(lines, "\n")
+end
 
 -- Without date or place: for the second line of a list row.
 function MH.ShortEvent(event)
@@ -53,7 +123,9 @@ function MH:TooltipLines(name)
   if summary.tone then
     -- the word first and big: you must see at a glance what this player is to you
     lines[#lines + 1] = SL.Players:Label(category, 18, true) .. "  " .. T.Paint(L.ADDON_NAME, T.color.gray)
-    lines[#lines + 1] = eventText(summary.latest)
+    for _, line in ipairs(MH.Highlights(record)) do
+      lines[#lines + 1] = line
+    end
     if category == "trusted" and summary.bad > 0 then
       lines[#lines + 1] = SL.Players:Label("warned", 14) -- trusted by you, but the addon saw something
     end
@@ -202,12 +274,12 @@ function MH:OnInvite(_, name)
   if not SL.settings.showInvite or API.IsSecret(name) then
     return
   end
-  local summary = summaryFor(name)
+  local summary, record = summaryFor(name)
   if summary and summary.tone then
     SL.Alert:Toast({
       tone = summary.tone,
       title = string.format(L.INVITE_TITLE, Names.Short(name) or "?") .. " · " .. SL.Players:Label((SL.Players:Category(name)) or "seen", 14, true),
-      body = eventText(summary.latest),
+      body = MH.NoticeBody(record, summary),
       seconds = 30,
     })
   end
@@ -223,12 +295,12 @@ function MH:OnRoster()
     local short = Names.Short(member.name)
     if short and not self.known[short] and not Names.IsMe(short) then
       self.known[short] = true
-      local summary = summaryFor(short)
+      local summary, record = summaryFor(short)
       if summary and (summary.tone == "bad" or summary.tone == "mixed" or summary.tone == "warn") then
         SL.Alert:Toast({
           tone = summary.tone,
           title = SL.Players:Label((SL.Players:Category(short)) or "seen", 16, true) .. " · " .. string.format(L.JOINED_TITLE, short),
-          body = eventText(summary.latest),
+          body = MH.NoticeBody(record, summary),
           seconds = 20,
         })
       end

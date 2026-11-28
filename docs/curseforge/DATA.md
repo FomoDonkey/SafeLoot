@@ -10,6 +10,6 @@
 - **Issues:** https://github.com/FomoDonkey/SafeLoot/issues
 - **File:** `dist/SafeLoot-<version>.zip` (made by `python tools/package.py`)
 - **Game version:** WoW Forever, 1.60.1. Only Forever
-- **Release type:** Beta until boss loot and the alarm have been seen inside a dungeon
+- **Release type:** Release (since 0.5.3). CurseForge copies the game version from the previous file but not the type: check it says Release
 - **Changelog:** the section of that version in `CHANGELOG.md`
 - **Screenshots:** real ones, taken in the game, without other players' names

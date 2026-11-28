@@ -180,7 +180,7 @@ function PL:OnWhisper(_, _, sender)
   SL.Alert:Toast({
     tone = category == "warned" and "warn" or "bad",
     title = string.format(L.WHISPER_TITLE, name) .. " · " .. self:Label(category, 14, true),
-    body = SL.MemoryHooks.EventText(summary.latest),
+    body = SL.MemoryHooks.NoticeBody(record, summary),
     seconds = 15,
   })
 end

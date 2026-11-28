@@ -427,6 +427,11 @@ function API.LocalizedClass(classFile)
   return classFile
 end
 
+-- The game's word for an item quality ("Uncommon"), in the game's language.
+function API.QualityName(quality)
+  return _G["ITEM_QUALITY" .. tostring(quality) .. "_DESC"] or tostring(quality)
+end
+
 function API.GameBuild()
   if not GetBuildInfo then
     return nil

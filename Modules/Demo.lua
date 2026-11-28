@@ -29,6 +29,10 @@ local ITEMS = {
   [280079] = "Lunarlight Robe", [280080] = "Claymore of Two Moons", [280085] = "Tunnelweb Pincer", [280086] = "Octofinger Gauntlets",
   [287032] = "Den Champion's Binding", [251453] = "Plans: Breastplate of Salvation", [287034] = "Grove Subjugator's Blade", [287028] = "Tormented Cuffs",
 }
+-- the few words the game itself puts in our windows, in its own language
+local CLASSES = { WARRIOR = "Warrior", PALADIN = "Paladin", HUNTER = "Hunter", ROGUE = "Rogue", PRIEST = "Priest", SHAMAN = "Shaman",
+  MAGE = "Mage", WARLOCK = "Warlock", DRUID = "Druid" }
+local QUALITIES = { [0] = "Poor", "Common", "Uncommon", "Rare", "Epic", "Legendary" }
 local STRATHOLME, BLACKMAW, RIVENDARE = 329, 2974, 484
 local DAY = 86400
 
@@ -159,6 +163,8 @@ function Demo:Begin()
     return { method = self.method or Rules.GROUP, threshold = 2, leader = "Borin Ironbelly" }
   end)
   patch(API, "PlaceName", function() return "Stratholme" end)
+  patch(API, "LocalizedClass", function(class) return CLASSES[class] or class end)
+  patch(API, "QualityName", function(quality) return QUALITIES[quality] or tostring(quality) end)
   patch(API, "SendGroupChat", function() return false end)
   patch(API, "SendAddon", function() return false end)
   patch(Names, "Me", function() return ME end)
@@ -213,6 +219,7 @@ function Demo:Clear()
   end
   if SL.Run.summary then
     SL.Run.summary:Hide()
+    SL.Run.summary.Ok:SetText(OKAY or "OK")
   end
   SL.LootPicker:Hide()
   if SL.MainFrame.frame then
@@ -288,7 +295,8 @@ Demo.STEPS = {
   { "joined", function()
     SL.Alert:ShowToast({
       tone = "bad", title = SL.Players:Label("ninja", 16, true) .. " · " .. string.format(L.JOINED_TITLE, "Grimtooth Vale"), seconds = 15,
-      body = SL.MemoryHooks.EventText(SL.db.players["Grimtooth Vale"].events[3]),
+      body = SL.MemoryHooks.NoticeBody(SL.db.players["Grimtooth Vale"],
+        SL.Memory.Summary(SL.db.players["Grimtooth Vale"], API.Now(), SL.settings.memoryDays)),
     })
   end },
   { "tooltip", function()
@@ -303,6 +311,7 @@ Demo.STEPS = {
   end },
   { "summary", function()
     SL.Run:ShowSummary(Demo.lastRun)
+    SL.Run.summary.Ok:SetText("OK")
   end },
   { "help", function() SL.MainFrame:Open("help") end },
   { "welcome", function() SL:HandleSlash("welcome") end },

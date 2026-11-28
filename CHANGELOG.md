@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.3 — 2026-11-28 — clear notes
+- Notes say only what you wrote. On the player card every note, mark and alert now shows on its own, with when in grey under it ("today", "3 days ago"): the zone and the exact time came with every line and cut the note short (seen in the real client). Hover a line to read it whole, with the exact date and the place. Alerts recorded by the addon keep where they happened.
+- The player tooltip and the notices about someone show your newest note and the newest thing the addon saw, instead of repeating your mark under the big word.
+- The screenshot mode is fully in the add-on's language, whatever the language of the game (class, quality and the OK button came from the game).
+
 ## 0.5.2 — 2026-11-25 — performance, code and security audit
 Checked offline and against the Forever UI source; not yet seen in the real client.
 

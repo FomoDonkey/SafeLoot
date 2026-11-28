@@ -171,7 +171,7 @@ function C:GameStateLine()
     parts[#parts] = parts[#parts] .. " (" .. state.masterLooter .. ")"
   end
   if state.threshold then
-    local name = _G["ITEM_QUALITY" .. state.threshold .. "_DESC"] or tostring(state.threshold)
+    local name = API.QualityName(state.threshold)
     local color = ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[state.threshold]
     if color and color.hex then
       name = color.hex .. name .. "|r"

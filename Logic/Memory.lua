@@ -136,6 +136,7 @@ end
 local function alive(event, now, days)
   return M.PERMANENT[event.kind] or not days or not event.t or (now - event.t) <= days * M.DAY
 end
+M.Alive = alive
 
 -- One category per player: your opinion first; then what the addon saw; then written notes; else just "seen".
 function M.Category(record, now, days)
